@@ -1,11 +1,216 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tableau de bord — Portail RH</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
 <body>
-    
+
+  <!-- TOPBAR (full width) -->
+  <header class="topbar">
+    <div class="container">
+      <div class="topbar-left">portailRH</div>
+      <div class="topbar-center">
+        <input type="text" placeholder="Rechercher">
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn"><i class="fa fa-book"></i></button>
+        <button class="icon-btn"><i class="fa fa-users"></i></button>
+        <button class="icon-btn"><i class="fa fa-bell"></i></button>
+        <img src="https://i.pravatar.cc/40" class="avatar" alt="profil">
+      </div>
+    </div>
+  </header>
+
+  <div class="app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">B</div>
+        <div class="brand-info">
+          <div class="company">Ladmix Company</div>
+          <div class="members">Équipe • 20 membres</div>
+        </div>
+      </div>
+
+      <nav class="menu">
+        <a class="menu-item active" href="#"><i class="fa fa-home"></i> Tableau de bord</a>
+        <a class="menu-item" href="#"><i class="fa fa-user"></i> Employés</a>
+        <a class="menu-item" href="#"><i class="fa fa-money-bill"></i> Paie</a>
+        <a class="menu-item" href="#"><i class="fa fa-calendar"></i> Planning</a>
+      </nav>
+
+      <div class="departments">
+        <h4>DÉPARTEMENT</h4>
+        <ul>
+          <li><span class="dot blue"></span> Business et marketing</li>
+          <li><span class="dot purple"></span> Design</li>
+          <li><span class="dot yellow"></span> Gestion de projet</li>
+          <li><span class="dot red"></span> Ressources humaines</li>
+          <li><span class="dot green"></span> Développement</li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+      <header class="main-header">
+        <h2>Tableau de bord</h2>
+        <div class="header-actions">
+          <button class="btn">Ajouter une tâche</button>
+        </div>
+      </header>
+
+      <!-- Metrics row -->
+      <section class="metrics">
+        <div class="metric-card">
+          <div class="metric-title">Total des employés</div>
+          <div class="metric-number">3,540 <span class="metric-change green">+25,5%</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Candidatures</div>
+          <div class="metric-number">1,150 <span class="metric-change green">+4,10%</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Nouveaux employés</div>
+          <div class="metric-number">500 <span class="metric-change red">+5,1%</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">Démissions</div>
+          <div class="metric-number">100 <span class="metric-change green">+5,1%</span></div>
+        </div>
+      </section>
+
+      <section class="main-row">
+        <div class="card large-card">
+          <div class="card-header">
+            <h3>Tâches du jour</h3>
+            <div class="card-actions"><button class="btn small">+</button></div>
+          </div>
+          <table class="task-table">
+            <thead>
+              <tr>
+                <th>Tâche</th>
+                <th>Date</th>
+                <th>Équipe</th>
+                <th>Progression</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Créer la charte graphique Wily</td>
+                <td>12 déc. 2023</td>
+                <td class="team">
+                  <img class="avatar-sm" src="https://i.pravatar.cc/32?img=32">
+                  <img class="avatar-sm" src="https://i.pravatar.cc/32?img=12">
+                  <img class="avatar-sm" src="https://i.pravatar.cc/32?img=45">
+                </td>
+                <td>
+                  <div class="progress">
+                    <div class="progress-fill" style="width:50%"></div>
+                    
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>Design Dribbble</td>
+                <td>09 nov. 2023</td>
+                <td class="team"><img class="avatar-sm" src="https://i.pravatar.cc/32?img=10"></td>
+                <td>
+                  <div class="progress">
+                    <div class="progress-fill" style="width:25%"></div>
+        
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>Développement application web</td>
+                <td>15 déc. 2023</td>
+                <td class="team"><img class="avatar-sm" src="https://i.pravatar.cc/32?img=5"></td>
+                <td>
+                  <div class="progress">
+                    <div class="progress-fill" style="width:100%"></div>
+                
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card sidebar-card">
+          <h3>Planning à venir</h3>
+          <div class="schedule-item">Analyse des candidatures — Aujourd’hui 11:30</div>
+          <div class="schedule-item">Entretiens avec les candidats — Aujourd’hui 10:30</div>
+          <a class="link muted" href="#">+ Créer un nouveau planning</a>
+        </div>
+      </section>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Employés</h3>
+          <div class="card-actions">
+            <button class="btn" href="#employees">Tous</button>
+            <button class="btn">Ajouter un employé</button>
+          </div>
+        </div>
+
+        <table class="employees">
+          <thead>
+            <tr>
+              <th>Nom de l’employé <i class="fa fa-sort"></i></th>
+              <th>Poste <i class="fa fa-sort"></i></th>
+              <th>CIN <i class="fa fa-sort"></i></th>
+              <th>Département <i class="fa fa-sort"></i></th>
+              <th>Statut <i class="fa fa-sort"></i></th>
+              <th>Compte</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr>
+              <td class="employee">
+                <img src="https://i.pravatar.cc/40?img=1">
+                Jane Cooper
+              </td>
+              <td>Designer UI/UX</td>
+              <td>AB123456</td>
+              <td>Équipe Produit</td>
+              <td><span class="status active">ACTIF</span></td>
+              <td class="account">Activé</td>
+              <td class="actions">
+                <button class="btn-icon edit"><i class="fa fa-pen"></i></button>
+                <button class="btn-icon delete"><i class="fa fa-trash"></i></button>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="employee">
+                <img src="https://i.pravatar.cc/40?img=2">
+                Brooklyn Simmons
+              </td>
+              <td>Designer graphique</td>
+              <td>CD987654</td>
+              <td>Équipe Produit</td>
+              <td><span class="status onboarding">EN INTÉGRATION</span></td>
+              <td class="account">Activé</td>
+              <td class="actions">
+                <button class="btn-icon edit"><i class="fa fa-pen"></i></button>
+                <button class="btn-icon delete"><i class="fa fa-trash"></i></button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="java.js"></script>
 </body>
 </html>
