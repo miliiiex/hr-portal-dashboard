@@ -34,7 +34,7 @@ function renderEmployees(){
         <td><span class="status ${e.status === "ACTIF" ? "active" : "onboarding"}">${e.status}</span></td>
         <td>Activé</td>
         <td>
-          <button onclick="removeEmployee(${i})">❌</button>
+          <button class="btn-icon delete" onclick="removeEmployee(${i})"><i class="fa fa-trash"></i></button>
         </td>
       </tr>
     `;
