@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Tableau de bord — Portail RH</title>
+  <title>Tableau de bord â Portail RH</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
@@ -14,7 +14,6 @@
   <div class="container">
     <div class="topbar-left">portailRH</div>
     <div class="topbar-center">
-      <input type="text" placeholder="Rechercher">
     </div>
     <div class="topbar-right">
       <button class="icon-btn"><i class="fa fa-book"></i></button>
@@ -38,19 +37,19 @@
 
     <nav class="menu">
       <a class="menu-item active"><i class="fa fa-home"></i> Tableau de bord</a>
-      <a class="menu-item"><i class="fa fa-user"></i> Employés</a>
+      <a class="menu-item"><i class="fa fa-user"></i> Employes</a>
       <a class="menu-item"><i class="fa fa-building"></i> Department</a>
       <a class="menu-item"><i class="fa fa-calendar"></i> Planning</a>
     </nav>
 
     <div class="departments">
-      <h4>DÉPARTEMENT</h4>
+      <h4>DÃPARTEMENT</h4>
       <ul>
         <li><span class="dot blue"></span> Business et marketing</li>
         <li><span class="dot purple"></span> Design</li>
         <li><span class="dot yellow"></span> Gestion de projet</li>
         <li><span class="dot red"></span> Ressources humaines</li>
-        <li><span class="dot green"></span> Développement</li>
+        <li><span class="dot green"></span> DÃ©veloppement</li>
       </ul>
     </div>
   </aside>
@@ -58,14 +57,12 @@
   <!-- MAIN -->
   <main class="main">
     <header class="main-header">
-      <h2>Tableau de bord</h2>
-      <!-- 🔁 bouton modifié -->
-      <button class="btn" onclick="openModal()">Ajouter un employé</button>
-    </header>
+  <h2>Tableau de bord</h2>
+</header>
 <!-- KPI -->
     <section class="metrics">
       <div class="metric-card">
-        <div class="metric-title">Total des employés</div>
+        <div class="metric-title">Total des employes</div>
         <div class="metric-number" id="kpiEmployees">0</div>
       </div>
 
@@ -75,20 +72,28 @@
       </div>
 
       <div class="metric-card">
-        <div class="metric-title">Nouveaux employés</div>
+        <div class="metric-title">Nouveaux employes</div>
         <div class="metric-number" id="kpiNew">0</div>
       </div>
 
       <div class="metric-card">
-        <div class="metric-title">Démissions</div>
+        <div class="metric-title">Demissions</div>
         <div class="metric-number" id="kpiLeave">0</div>
       </div>
     </section>
 
-    <!-- TABLE EMPLOYÉS -->
-    <div class="card">
+    <!-- TABLE EMPLOYÃS -->
+    <div class="card" id="employeesCard">
       <div class="card-header">
-        <h3>Employés</h3>
+        <h3>Employes</h3>
+        <div class="search-container">
+          <i class="fa fa-search search-icon"></i>
+          <input type="text" id="searchEmployees" placeholder="Rechercher par nom, identifiant, poste..." class="search-input">
+        </div>
+        <div class="card-actions">
+          <button class="btn" onclick="showAllEmployees()">Tout</button>
+          <button class="btn" onclick="openModal()">Ajouter un employe</button>
+        </div>
       </div>
 
       <table class="employees">
@@ -97,25 +102,59 @@
             <th>Nom</th>
             <th>Poste</th>
             <th>CIN</th>
-            <th>Département</th>
+            <th>Departement</th>
             <th>Statut</th>
-            <th>Compte</th>
+            <th>Identifiant</th>
             <th>Action</th>
           </tr>
         </thead>
 
-        <!-- 🔁 tbody remplacé -->
+        <!-- ð tbody remplacÃ© -->
         <tbody id="employeesBody"></tbody>
       </table>
+    </div>
+
+    <!-- PLANNING -->
+    <div class="card" id="planningCard" style="display: none;">
+      <div class="card-header">
+        <h3>Planning</h3>
+        <button class="btn-add-task" onclick="openTaskModal()" title="Ajouter une tâche">
+          <i class="fa fa-plus"></i>
+        </button>
+      </div>
+      
+      <div class="calendar-container">
+        <div class="calendar-header">
+          <button class="calendar-nav" onclick="previousMonth()">
+            <i class="fa fa-chevron-left"></i>
+          </button>
+          <h3 id="calendarMonthYear"></h3>
+          <button class="calendar-nav" onclick="nextMonth()">
+            <i class="fa fa-chevron-right"></i>
+          </button>
+        </div>
+        
+        <div class="calendar-weekdays">
+          <div class="weekday">Lun</div>
+          <div class="weekday">Mar</div>
+          <div class="weekday">Mer</div>
+          <div class="weekday">Jeu</div>
+          <div class="weekday">Ven</div>
+          <div class="weekday">Sam</div>
+          <div class="weekday">Dim</div>
+        </div>
+        
+        <div class="calendar-grid" id="calendarGrid"></div>
+      </div>
     </div>
   </main>
 </div>
 
-<!-- ➕ MODAL AJOUT EMPLOYÉ -->
+<!-- â MODAL AJOUT EMPLOYÃ -->
 <div id="employeeModal" class="modal hidden">
   <div class="modal-content">
     <span class="modal-close" onclick="closeModal()">&times;</span>
-    <h3>Ajouter un employé</h3>
+    <h3>Ajouter un employe</h3>
 
     <form id="employeeForm">
       <div class="form-group">
@@ -124,18 +163,22 @@
       </div>
       <div class="form-group">
         <label for="empRole">Poste</label>
-        <input type="text" id="empRole" placeholder="Ex: Développeur" required>
+        <input type="text" id="empRole" placeholder="Ex: DÃ©veloppeur" required>
       </div>
       <div class="form-group">
         <label for="empCin">CIN</label>
         <input type="text" id="empCin" placeholder="Ex: AB123456" required>
       </div>
       <div class="form-group">
-        <label for="empDepartment">Département</label>
+        <label for="empIdentifier">Identifiant (généré automatiquement)</label>
+        <input type="text" id="empIdentifier" placeholder="Généré automatiquement" required readonly>
+      </div>
+      <div class="form-group">
+        <label for="empDepartment">Departement</label>
         <select id="empDepartment">
-          <option value="">Sélectionner</option>
+          <option value="">Selectionner</option>
           <option>Ressources humaines</option>
-          <option>Développement</option>
+          <option>Developpement</option>
           <option>Design</option>
           <option>Marketing</option>
         </select>
@@ -144,12 +187,44 @@
         <label for="empStatus">Statut</label>
         <select id="empStatus">
           <option value="ACTIF">ACTIF</option>
-          <option value="EN INTÉGRATION">EN INTÉGRATION</option>
+          <option value="EN INTÉGRATION">EN INTEGRATION</option>
         </select>
       </div>
 
       <div class="modal-actions">
         <button type="button" class="btn cancel" onclick="closeModal()">Annuler</button>
+        <button type="submit" class="btn">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL AJOUT TÂCHE -->
+<div id="taskModal" class="modal hidden">
+  <div class="modal-content">
+    <span class="modal-close" onclick="closeTaskModal()">&times;</span>
+    <h3>Ajouter une tâche</h3>
+
+    <form id="taskForm">
+      <div class="form-group">
+        <label for="taskTitle">Titre de la tâche</label>
+        <input type="text" id="taskTitle" placeholder="Ex: Réunion d'équipe" required>
+      </div>
+      <div class="form-group">
+        <label for="taskDate">Date</label>
+        <input type="date" id="taskDate" required min="">
+      </div>
+      <div class="form-group">
+        <label for="taskTime">Heure</label>
+        <input type="time" id="taskTime" required>
+      </div>
+      <div class="form-group">
+        <label for="taskDescription">Description</label>
+        <textarea id="taskDescription" placeholder="Description de la tâche..." rows="3"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn cancel" onclick="closeTaskModal()">Annuler</button>
         <button type="submit" class="btn">Ajouter</button>
       </div>
     </form>
