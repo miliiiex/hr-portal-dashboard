@@ -8,7 +8,7 @@
   --radius:18px;
 }
 
-/* ================= RESET ================= */
+
 *{
   box-sizing:border-box;
   margin:0;
@@ -25,13 +25,13 @@ body{
   letter-spacing:-0.01em;
 }
 
-/* ================= LAYOUT ================= */
+
 .app{
   display:flex;
   min-height:calc(100vh - 56px);
 }
 
-/* ================= SIDEBAR ================= */
+
 .sidebar{
   width:260px;
   background:var(--sidebar);
@@ -99,7 +99,7 @@ body{
   font-weight:600;
 }
 
-/* ================= DEPARTMENTS ================= */
+
 .departments{
   margin-top:24px;
 }
@@ -134,7 +134,7 @@ body{
 .dot.red{background:#ef4444}
 .dot.green{background:#252c5f}
 
-/* ================= TOPBAR ================= */
+
 .topbar{
   background:#1F3F2A;
   color:#fff;
@@ -183,7 +183,7 @@ body{
   border-radius:50%;
 }
 
-/* ================= MAIN ================= */
+
 .main{
   flex:1;
   padding:28px 32px;
@@ -200,7 +200,7 @@ body{
   color:#0f172a;
 }
 
-/* ================= KPI ================= */
+
 .metrics{
   display:grid;
   grid-template-columns:repeat(4,1fr);
@@ -238,7 +238,7 @@ body{
   letter-spacing:-0.03em;
 }
 
-/* ================= CARD ================= */
+
 .card{
   background:var(--card);
   padding:28px;
@@ -270,7 +270,7 @@ body{
   gap:10px;
 }
 
-/* ================= BUTTONS ================= */
+
 .btn{
   background:var(--accent);
   color:#fff;
@@ -307,7 +307,7 @@ body{
   box-shadow:0 2px 4px rgba(0,0,0,0.15);
 }
 
-/* ================= SEARCH ================= */
+
 .search-container{
   position:relative;
   width:280px;
@@ -339,7 +339,7 @@ body{
   color:#94a3b8;
 }
 
-/* ================= TABLE EMPLOYÉS ================= */
+
 .employees{
   width:100%;
   border-collapse:separate;
@@ -396,7 +396,7 @@ body{
   border-radius:50%;
 }
 
-/* ================= STATUS ================= */
+
 .status{
   padding:6px 12px;
   border-radius:8px;
@@ -417,7 +417,7 @@ body{
   color:#ea580c;
 }
 
-/* ================= ACTIONS ================= */
+
 .actions{
   display:flex;
   gap:12px;
@@ -450,7 +450,7 @@ body{
   color:#dc2626;
 }
 
-/* ================= MODAL ================= */
+
 .modal{
   position:fixed;
   inset:0;
@@ -545,7 +545,7 @@ body{
   margin-top:22px;
 }
 
-/* ================= PLANNING ================= */
+
 .btn-add-task{
   background:#16a34a;
   color:#fff;
@@ -767,3 +767,4 @@ body{
   background:#F5F2ED;
   box-shadow:0 0 0 2px rgba(155,201,155,0.2);
 }
+
