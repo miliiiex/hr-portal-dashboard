@@ -1,2756 +1,548 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tableau de bord — Portail RH</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
 
-let employees = JSON.parse(localStorage.getItem("employees")) || [];
-let candidates = JSON.parse(localStorage.getItem("candidates")) || [];
-let leaves = JSON.parse(localStorage.getItem("leaves")) || 0;
-let showAll = false;
-
-
- 
-
-/**
- * Vérifie que tous les employés ont un identifiant unique
- * Génère automatiquement un identifiant pour les employés qui n'en ont pas
- * Sauvegarde les modifications dans localStorage
- */
-function ensureAllEmployeesHaveIdentifier() {
-  let hasChanges = false;
-  
-  employees.forEach((employee) => {
-    if (!employee.identifier) {
-      employee.identifier = generateUniqueIdentifier();
-      hasChanges = true;
-    }
-  });
-  
-  if (hasChanges) {
-    localStorage.setItem("employees", JSON.stringify(employees));
-  }
-}
-
-const employeesBody = document.getElementById("employeesBody");
-const employeesBodyDashboard = document.getElementById("employeesBodyDashboard");
-
-const modal = document.getElementById("employeeModal");
-const form = document.getElementById("employeeForm");
-
-const empName = document.getElementById("empName");
-const empRole = document.getElementById("empRole");
-const empCin = document.getElementById("empCin");
-const empIdentifier = document.getElementById("empIdentifier");
-const empDepartment = document.getElementById("empDepartment");
-const empStatus = document.getElementById("empStatus");
-const empSalary = document.getElementById("empSalary");
-
-// KPI
-const kpiEmployees = document.getElementById("kpiEmployees");
-const kpiCandidates = document.getElementById("kpiCandidates");
-const kpiNew = document.getElementById("kpiNew");
-const kpiLeave = document.getElementById("kpiLeave");
-
-// Sections
-const metricsSection = document.querySelector(".metrics");
-const mainHeader = document.querySelector(".main-header");
-
-// Menu
-const menuItems = document.querySelectorAll(".menu-item");
-const dashboardMenu = menuItems[0];
-const employeesMenu = menuItems[1];
-const candidatesMenu = menuItems[2];
-const departmentMenu = menuItems[3];
-const planningMenu = menuItems[4];
-
-// Sections
-const employeesCard = document.getElementById("employeesCard");
-const employeesCardDashboard = document.getElementById("employeesCardDashboard");
-const candidatesCard = document.getElementById("candidatesCard");
-const departmentCard = document.getElementById("departmentCard");
-const planningCard = document.getElementById("planningCard");
-
-// Candidatures
-const candidatesBody = document.getElementById("candidatesBody");
-const candidateModal = document.getElementById("candidateModal");
-const candidateForm = document.getElementById("candidateForm");
-const searchCandidatesInput = document.getElementById("searchCandidates");
-let editingCandidateId = null;
-
-// Bouton "Ajouter un employé"
-const addEmployeeBtn = document.querySelector(".card-actions .btn:last-child");
-
-// Barre de recherche
-const searchContainer = document.querySelector(".search-container");
-const searchInput = document.getElementById("searchEmployees");
-
-// Mode édition
-let editingCin = null;
-const modalTitle = document.querySelector("#employeeModal h3");
-const submitButton = document.querySelector("#employeeForm button[type='submit']");
-
-
-
-/**
- * Ouvre le modal d'ajout/modification d'employé
- * @param {string|null} identifier - Identifiant de l'employé à modifier (null pour ajouter)
- * Remplit le formulaire avec les données de l'employé si en mode édition
- * Génère un identifiant unique si en mode ajout
- */
-function openModal(identifier = null) {
-  editingCin = identifier;
-
-  const customEmpDepartment = document.getElementById("customEmpDepartment");
-  const customSelectValue = customEmpDepartment?.querySelector(".custom-select-value");
-  const customSelectOptions = customEmpDepartment?.querySelectorAll(".custom-select-option");
-  
-  if (identifier) {
-    // modifier emp
-    const employee = employees.find(e => e.identifier === identifier);
-    if (employee) {
-      empName.value = employee.name;
-      empRole.value = employee.role;
-      empCin.value = employee.cin;
-      empIdentifier.value = employee.identifier;
-      empDepartment.value = employee.department;
-      empStatus.value = employee.status;
-      empSalary.value = employee.salary || '';
-      
-      // Mettre à jour le sélecteur personnalisé
-      if (customSelectValue && customSelectOptions) {
-        const selectedOption = Array.from(customSelectOptions).find(opt => opt.getAttribute("data-value") === employee.department);
-        if (selectedOption) {
-          customSelectValue.textContent = selectedOption.textContent;
-          customSelectOptions.forEach(opt => opt.classList.remove("selected"));
-          selectedOption.classList.add("selected");
-        } else {
-          customSelectValue.textContent = employee.department || "Selectionner";
-        }
-      }
-      
-      modalTitle.textContent = "Modifier un employé";
-      submitButton.textContent = "Modifier";
-      //id unique  ne pas le modifier 
-      empIdentifier.disabled = true;
-      empCin.disabled = false; 
-    }
-  } else {
-    //partie ajout emp 
-    const newIdentifier = generateUniqueIdentifier();
-    empIdentifier.value = newIdentifier;
-    empIdentifier.disabled = true;
-    empCin.disabled = false; 
-    
-    // Réinitialiser le sélecteur personnalisé
-    if (customSelectValue) {
-      customSelectValue.textContent = "Selectionner";
-    }
-    if (customSelectOptions) {
-      customSelectOptions.forEach(opt => opt.classList.remove("selected"));
-      const defaultOption = Array.from(customSelectOptions).find(opt => opt.getAttribute("data-value") === "");
-      if (defaultOption) {
-        defaultOption.classList.add("selected");
-      }
-    }
-    
-    modalTitle.textContent = "Ajouter un employé";
-    submitButton.textContent = "Ajouter";
-  }
-  
-  modal.classList.remove("hidden");
-}
-
-/**
- * Ferme le modal d'ajout/modification d'employé
- * Réinitialise le formulaire et les variables d'édition
- */
-function closeModal() {
-  modal.classList.add("hidden");
-  form.reset();
-  editingCin = null;
-  empCin.disabled = false;
-  empIdentifier.disabled = false;
-  if (empSalary) empSalary.value = '';
-  
-  // Réinitialiser le sélecteur personnalisé
-  const customEmpDepartment = document.getElementById("customEmpDepartment");
-  const customSelectValue = customEmpDepartment?.querySelector(".custom-select-value");
-  const customSelectOptions = customEmpDepartment?.querySelectorAll(".custom-select-option");
-  if (customSelectValue) {
-    customSelectValue.textContent = "Selectionner";
-  }
-  if (customSelectOptions) {
-    customSelectOptions.forEach(opt => opt.classList.remove("selected"));
-    const defaultOption = Array.from(customSelectOptions).find(opt => opt.getAttribute("data-value") === "");
-    if (defaultOption) {
-      defaultOption.classList.add("selected");
-    }
-  }
-}
-
-/**
- * Ferme le modal d'employé si l'utilisateur clique en dehors du contenu
- * Détecte les clics sur le fond du modal (overlay)
- */
-modal.addEventListener("click", (e) => {
-  if (e.target === modal) closeModal();
-});
-
-/**
- * Affiche la liste des employés avec filtrage et tri
- * @param {string} searchTerm - Terme de recherche (par identifiant ou nom)
- * @param {string} departmentFilter - Filtre par département
- * Affiche les employés dans le tableau de la page dédiée et dans le dashboard
- * Trie les employés par ordre alphabétique
- * Met à jour les KPIs après l'affichage
- */
-function renderEmployees(searchTerm = "", departmentFilter = "") {
-
-  let filteredEmployees = employees;
-  
-  // Filtrer par id et nom 
-  if (searchTerm && searchTerm.trim()!== "") {
-    const searchLower = searchTerm.toLowerCase().trim();
-    
-    filteredEmployees = filteredEmployees.filter((e) => {
-      const identifierMatch = (e.identifier || '').toLowerCase().includes(searchLower);
-      const nameMatch = (e.name || '').toLowerCase().includes(searchLower);
-      return identifierMatch || nameMatch;
-    });
-  }
-  
-  // Filtrer par département si un filtre est sélectionné
-  if (departmentFilter && departmentFilter.trim() !== "") {
-    filteredEmployees = filteredEmployees.filter((e) => {
-      return (e.department || '') === departmentFilter;
-    });
-  }
-
-  // Trier Emp ordre al 
-  filteredEmployees.sort((a, b) => {
-    return a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
-  });
-
-  //  pour Dashboard 4 emp
-  const listToShow = showAll ? filteredEmployees : filteredEmployees.slice(0, 4);
-
-  //  page employés ]
-  if (employeesBody) {
-    employeesBody.innerHTML = "";
-    if (listToShow.length === 0) {
-      employeesBody.innerHTML = `
-        <tr>
-          <td colspan="8" style="text-align: center; padding: 40px; color: var(--muted);">
-            Aucun employé trouvé
-          </td>
-        </tr>
-      `;
-    } else {
-      listToShow.forEach((e) => {
-        employeesBody.innerHTML += `
-          <tr>
-            <td class="employee">
-              <img src="https://i.pravatar.cc/40?u=${e.identifier || e.cin}">
-              ${e.name}
-            </td>
-            <td>${e.role}</td>
-            <td>${e.cin}</td>
-            <td>${e.department}</td>
-            <td>
-              <span class="status ${e.status === "ACTIF" ? "active" : "onboarding"}">
-                ${e.status}
-              </span>
-            </td>
-            <td>${e.salary ? e.salary.toLocaleString('fr-FR') : 'N/A'}</td>
-            <td>${e.identifier || 'N/A'}</td>
-            <td class="actions">
-              <button class="btn-icon view" onclick="viewEmployee('${e.identifier || e.cin}')" title="Voir les détails">
-                <i class="fa fa-eye"></i>
-              </button>
-              <button class="btn-icon edit" onclick="editEmployee('${e.identifier || e.cin}')" title="Modifier">
-                <i class="fa fa-edit"></i>
-              </button>
-              <button class="btn-icon delete" onclick="removeEmployee('${e.identifier || e.cin}')" title="Supprimer">
-                <i class="fa fa-trash"></i>
-              </button>
-            </td>
-          </tr>
-        `;
-      });
-    }
-  }
-
-  // Rendre dans le dashboard (toujours les 4 premiers)
-  if (employeesBodyDashboard) {
-    const dashboardList = filteredEmployees.slice(0, 4);
-    employeesBodyDashboard.innerHTML = "";
-    if (dashboardList.length === 0) {
-      employeesBodyDashboard.innerHTML = `
-        <tr>
-          <td colspan="8" style="text-align: center; padding: 40px; color: var(--muted);">
-            Aucun employé
-          </td>
-        </tr>
-      `;
-    } else {
-      dashboardList.forEach((e) => {
-        employeesBodyDashboard.innerHTML += `
-          <tr>
-            <td class="employee">
-              <img src="https://i.pravatar.cc/40?u=${e.identifier || e.cin}">
-              ${e.name}
-            </td>
-            <td>${e.role}</td>
-            <td>${e.cin}</td>
-            <td>${e.department}</td>
-            <td>
-              <span class="status ${e.status === "ACTIF" ? "active" : "onboarding"}">
-                ${e.status}
-              </span>
-            </td>
-            <td>${e.salary ? e.salary.toLocaleString('fr-FR') : 'N/A'}</td>
-            <td>${e.identifier || 'N/A'}</td>
-            <td class="actions">
-              <button class="btn-icon view" onclick="viewEmployee('${e.identifier || e.cin}')" title="Voir les détails">
-                <i class="fa fa-eye"></i>
-              </button>
-              <button class="btn-icon edit" onclick="editEmployee('${e.identifier || e.cin}')" title="Modifier">
-                <i class="fa fa-edit"></i>
-              </button>
-              <button class="btn-icon delete" onclick="removeEmployee('${e.identifier || e.cin}')" title="Supprimer">
-                <i class="fa fa-trash"></i>
-              </button>
-            </td>
-          </tr>
-        `;
-      });
-    }
-  }
-  
-  // Mettre à jour le texte du bouton "Voir tout" avec le nombre total d'employés (toujours, même si on n'est pas sur le dashboard)
-  const viewAllBtn = document.getElementById("viewAllEmployeesBtn");
-  if (viewAllBtn) {
-    if (filteredEmployees.length > 0) {
-      viewAllBtn.textContent = `Voir tout les employes (${filteredEmployees.length})`;
-    } else {
-      viewAllBtn.textContent = "Voir tout les employes";
-    }
-    viewAllBtn.style.display = "inline-block";
-  }
-
-  updateKPI();
-}
-
-/**
- * Affiche la page Dashboard principale
- * Affiche les KPIs, le tableau des 4 premiers employés, les tâches du jour et le graphique
- * Cache les autres sections de l'application
- */
-function showDashboard() {
-  showAll = false;
-
-  // afficher KPI et header
-  if (metricsSection) metricsSection.style.display = "grid";
-  if (mainHeader) mainHeader.style.display = "block";
-
-  // cacher bouton ajouter employé
-  addEmployeeBtn.style.display = "none";
-
-  // cacher barre de recherche
-  searchContainer.style.display = "none";
-
-  // Afficher dashboard content avec employés et tâches
-  const dashboardContent = document.getElementById("dashboardContent");
-  if (dashboardContent) dashboardContent.style.display = "grid";
-  if (employeesCardDashboard) employeesCardDashboard.style.display = "block";
-  const todayTasksCard = document.getElementById("todayTasksCard");
-  if (todayTasksCard) todayTasksCard.style.display = "block";
-  // Cacher la page employés dédiée
-  employeesCard.style.display = "none";
-  candidatesCard.style.display = "none";
-  departmentCard.style.display = "none";
-  planningCard.style.display = "none";
-
-  // menu actif
-  menuItems.forEach(i => i.classList.remove("active"));
-  dashboardMenu.classList.add("active");
-
-  // Réinitialiser la recherche
-  searchInput.value = "";
-  const filterDepartment = document.getElementById("filterDepartment");
-  if (filterDepartment) filterDepartment.value = "";
-  
-  // Afficher la carte du graphique
-  const dashboardChartCardEl = document.getElementById("dashboardDepartmentChartCard");
-  if (dashboardChartCardEl) dashboardChartCardEl.style.display = "block";
-  
-  renderEmployees();
-  renderTodayTasks();
-  renderDashboardDepartmentChart();
-}
-
-/**
- * Affiche la page dédiée aux employés avec tous les employés
- * Affiche la barre de recherche et le filtre par département
- * Cache les autres sections (dashboard, candidatures, départements, planning)
- */
-function showEmployeesPage() {
-  showAll = true;
-
-  // cacher KPI et header
-  if (metricsSection) metricsSection.style.display = "none";
-  if (mainHeader) mainHeader.style.display = "none";
-
-  // afficher bouton ajouter employé
-  addEmployeeBtn.style.display = "inline-block";
-
-  // afficher barre de recherche
-  searchContainer.style.display = "block";
-
-  // Cacher dashboard content (employés dashboard + tâches)
-  const dashboardContent = document.getElementById("dashboardContent");
-  if (dashboardContent) dashboardContent.style.display = "none";
-  
-  employeesCard.style.display = "block";
-  candidatesCard.style.display = "none";
-  departmentCard.style.display = "none";
-  planningCard.style.display = "none";
-  
-  // Cacher le graphique du dashboard
-  const dashboardChartCard = document.getElementById("dashboardDepartmentChartCard");
-  if (dashboardChartCard) dashboardChartCard.style.display = "none";
-
-  // menu actif
-  menuItems.forEach(i => i.classList.remove("active"));
-  employeesMenu.classList.add("active");
-
-  // Réinitialiser le sélecteur personnalisé
-  initCustomSelect();
-
-  renderEmployees();
-}
-
-/**
- * Affiche la page dédiée aux candidatures
- * Cache les autres sections et affiche uniquement la liste des candidatures
- */
-function showCandidatesPage() {
-  // Cacher KPI, header et autres sections
-  if (metricsSection) metricsSection.style.display = "none";
-  if (mainHeader) mainHeader.style.display = "none";
-  const dashboardContent = document.getElementById("dashboardContent");
-  if (dashboardContent) dashboardContent.style.display = "none";
-  employeesCard.style.display = "none";
-  departmentCard.style.display = "none";
-  planningCard.style.display = "none";
-  
-  // Cacher le graphique du dashboard
-  const dashboardChartCard = document.getElementById("dashboardDepartmentChartCard");
-  if (dashboardChartCard) dashboardChartCard.style.display = "none";
-  
-  // Afficher section candidatures
-  candidatesCard.style.display = "block";
-
-  // menu actif
-  menuItems.forEach(i => i.classList.remove("active"));
-  candidatesMenu.classList.add("active");
-
-  renderCandidates();
-}
-
-/**
- * Affiche la page dédiée aux départements avec statistiques et graphiques
- * Initialise et affiche le graphique de répartition par département
- * Cache les autres sections de l'application
- */
-function showDepartmentPage() {
-  // Cacher KPI, header et autres sections
-  if (metricsSection) metricsSection.style.display = "none";
-  if (mainHeader) mainHeader.style.display = "none";
-  const dashboardContent = document.getElementById("dashboardContent");
-  if (dashboardContent) dashboardContent.style.display = "none";
-  employeesCard.style.display = "none";
-  candidatesCard.style.display = "none";
-  planningCard.style.display = "none";
-  
-  // Afficher section département
-  departmentCard.style.display = "block";
-
-  // menu actif
-  menuItems.forEach(i => i.classList.remove("active"));
-  departmentMenu.classList.add("active");
-
-  // Initialiser le graphique
-  renderDepartmentChart();
-}
-
-/**
- * Affiche la page Planning avec le calendrier des tâches
- * Initialise le calendrier avec le mois en cours
- * Cache les autres sections de l'application
- */
-function showPlanningPage() {
-  // Cacher KPI, header et autres sections
-  if (metricsSection) metricsSection.style.display = "none";
-  if (mainHeader) mainHeader.style.display = "none";
-  const dashboardContent = document.getElementById("dashboardContent");
-  if (dashboardContent) dashboardContent.style.display = "none";
-  employeesCard.style.display = "none";
-  candidatesCard.style.display = "none";
-  departmentCard.style.display = "none";
-  
-  // Cacher le graphique du dashboard
-  const dashboardChartCard = document.getElementById("dashboardDepartmentChartCard");
-  if (dashboardChartCard) dashboardChartCard.style.display = "none";
-  
-  // Afficher planning
-  planningCard.style.display = "block";
-
-  // menu actif
-  menuItems.forEach(i => i.classList.remove("active"));
-  planningMenu.classList.add("active");
-
-  // Initialiser le calendrier
-  renderCalendar();
-}
-
-/**
- * Navigue vers la page complète des employés depuis le dashboard
- * Appelée lors du clic sur le bouton "Voir tout les employes"
- */
-function showAllEmployees() {
-  showEmployeesPage();
-}
-
-/**
- * Gestionnaires de navigation dans le menu latéral
- * Chaque élément du menu affiche sa section correspondante
- */
-dashboardMenu.addEventListener("click", showDashboard);
-employeesMenu.addEventListener("click", showEmployeesPage);
-candidatesMenu.addEventListener("click", showCandidatesPage);
-departmentMenu.addEventListener("click", showDepartmentPage);
-planningMenu.addEventListener("click", showPlanningPage);
-
-/**
- * Génère un identifiant unique numérique à 4 chiffres pour un employé
- * @returns {string} Identifiant unique (entre 1000 et 9999)
- * Vérifie que l'identifiant n'existe pas déjà dans la liste des employés
- */
-function generateUniqueIdentifier() {
-  let identifier;
-  let isUnique = false;
-  
-  while (!isUnique) {
-    
-    identifier = Math.floor(1000 + Math.random() * 9000).toString();
-    isUnique = !employees.some(e => e.identifier === identifier);
-  }
-  
-  return identifier;
-}
-/**
- * Affiche les détails complets d'un employé dans un modal en lecture seule
- * @param {string} identifier - Identifiant de l'employé à afficher
- * Affiche toutes les informations : nom, poste, CIN, département, statut, salaire
- */
-function viewEmployee(identifier) {
-  const employee = employees.find(e => e.identifier === identifier || e.cin === identifier);
-  if (!employee) {
-    alert("Employé non trouvé");
-    return;
-  }
-
-  const modal = document.getElementById("viewEmployeeModal");
-  const content = document.getElementById("viewEmployeeContent");
-  
-  if (!modal || !content) return;
-
-  // Obtenir les informations du département
-  const deptInfo = departmentInfo[employee.department] || {
-    color: "#94a3b8",
-    icon: "fa-building",
-    label: employee.department || "Non assigné"
-  };
-
-  content.innerHTML = `
-    <div class="view-employee-header">
-      <div class="view-employee-avatar">
-        <img src="https://i.pravatar.cc/100?u=${employee.identifier || employee.cin}" alt="${employee.name}">
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="login-page">
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <h2>Connexion</h2>
+        <p>Connectez-vous et commencez à gérer vos ressources humaines</p>
       </div>
-      <div class="view-employee-title">
-        <h2>${employee.name}</h2>
-        <p class="view-employee-role">${employee.role || 'N/A'}</p>
+      
+      <form id="loginForm" class="login-form">
+        <div class="form-group login-input-group">
+          <div class="input-icon">
+            <i class="fa fa-envelope"></i>
+          </div>
+          <input type="text" id="loginName" placeholder="Nom d'utilisateur" required>
+        </div>
+        
+        <div class="form-group login-input-group">
+          <div class="input-icon">
+            <i class="fa fa-lock"></i>
+          </div>
+          <input type="password" id="loginPassword" placeholder="Mot de passe" required>
+        </div>
+        
+        <div class="login-options">
+          <label class="remember-me">
+            <input type="checkbox" id="rememberMe">
+            <span>Se souvenir de moi</span>
+          </label>
+          <a href="#" class="forgot-password">Mot de passe oublié ?</a>
+        </div>
+        
+        <div id="loginError" class="login-error" style="display: none;">
+          Nom d'utilisateur ou mot de passe incorrect
+        </div>
+        
+        <button type="submit" class="btn btn-login">CONNEXION</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="dashboardApp" style="display: none;">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">B</div>
+      <div class="brand-info">
+        <div class="company">Ladmix Company</div>
       </div>
     </div>
 
-    <div class="view-employee-info">
-      <div class="info-section">
-        <h4>Informations personnelles</h4>
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="info-label">
-              <i class="fa fa-id-card"></i> CIN
-            </span>
-            <span class="info-value">${employee.cin || 'N/A'}</span>
+    <nav class="menu">
+      <a class="menu-item active"><i class="fa fa-home"></i> Tableau de bord</a>
+      <a class="menu-item"><i class="fa fa-user"></i> Employes</a>
+      <a class="menu-item"><i class="fa fa-file-alt"></i> Candidatures</a>
+      <a class="menu-item"><i class="fa fa-building"></i> Department</a>
+      <a class="menu-item"><i class="fa fa-calendar"></i> Planning</a>
+    </nav>
+
+    <div class="departments">
+      <h4>DÉPARTEMENT</h4>
+      <ul id="departmentsList">
+        <!-- Les départements seront générés dynamiquement -->
+      </ul>
+    </div>
+    
+    <div class="logout-section">
+      <button class="btn-logout" onclick="logout()">
+        <i class="fa fa-sign-out-alt"></i> Déconnexion
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <header class="main-header">
+  <h2>Tableau de bord</h2>
+</header>
+<!-- KPI -->
+    <section class="metrics">
+      <div class="metric-card">
+        <div class="metric-title">Total des employes</div>
+        <div class="metric-number" id="kpiEmployees">0</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Candidatures</div>
+        <div class="metric-number" id="kpiCandidates">0</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Nouveaux employes</div>
+        <div class="metric-number" id="kpiNew">0</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-title">Demissions</div>
+        <div class="metric-number" id="kpiLeave">0</div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD CONTENT -->
+    <div class="dashboard-content" id="dashboardContent">
+      <!-- TABLE EMPLOYÉS (Dashboard) -->
+      <div class="card" id="employeesCardDashboard">
+        <div class="card-header">
+          <h3>Employes</h3>
+          <div class="card-actions">
+            <button class="btn" id="viewAllEmployeesBtn" onclick="showAllEmployees()">Voir tout les employes</button>
           </div>
-          <div class="info-item">
-            <span class="info-label">
-              <i class="fa fa-hashtag"></i> Identifiant
-            </span>
-            <span class="info-value">${employee.identifier || 'N/A'}</span>
-          </div>
+        </div>
+
+        <table class="employees">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Poste</th>
+              <th>CIN</th>
+              <th>Departement</th>
+              <th>Statut</th>
+              <th>Salaire</th>
+              <th>Identifiant</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+
+          <!-- tbody remplacé -->
+          <tbody id="employeesBodyDashboard">
+          </tbody>
+        </table>
+      </div>
+
+      <!-- TÂCHES D'AUJOURD'HUI -->
+      <div class="card" id="todayTasksCard">
+        <div class="card-header">
+          <h3>Tâches d'aujourd'hui</h3>
+          <span class="task-date" id="todayDate"></span>
+        </div>
+        <div class="tasks-list" id="todayTasksList">
+          <!-- Les tâches seront générées dynamiquement -->
         </div>
       </div>
 
-      <div class="info-section">
-        <h4>Informations professionnelles</h4>
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="info-label">
-              <i class="fa fa-briefcase"></i> Poste
-            </span>
-            <span class="info-value">${employee.role || 'N/A'}</span>
+      <!-- GRAPHIQUE RÉPARTITION PAR DÉPARTEMENT -->
+      <div class="card" id="dashboardDepartmentChartCard">
+        <div class="card-header">
+          <h3>Répartition par département</h3>
+        </div>
+        <div class="chart-wrapper">
+          <div class="chart-container-large">
+            <canvas id="dashboardDepartmentChart"></canvas>
           </div>
-          <div class="info-item">
-            <span class="info-label">
-              <i class="fa ${deptInfo.icon}" style="color: ${deptInfo.color}"></i> Département
-            </span>
-            <span class="info-value" style="color: ${deptInfo.color}">${deptInfo.label}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">
-              <i class="fa fa-info-circle"></i> Statut
-            </span>
-            <span class="info-value">
-              <span class="status ${employee.status === "ACTIF" ? "active" : "onboarding"}">
-                ${employee.status || 'N/A'}
-              </span>
-            </span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">
-              <i class="fa fa-money-bill-wave"></i> Salaire
-            </span>
-            <span class="info-value">${employee.salary ? employee.salary.toLocaleString('fr-FR') + ' MAD' : 'N/A'}</span>
+          <div class="chart-center-text" id="dashboardChartCenterText">
           </div>
         </div>
       </div>
     </div>
-  `;
 
-  modal.classList.remove("hidden");
-}
-
-/**
- * Ferme le modal de visualisation des détails d'un employé
- */
-function closeViewEmployeeModal() {
-  const modal = document.getElementById("viewEmployeeModal");
-  if (modal) {
-    modal.classList.add("hidden");
-  }
-}
-
-/**
- * Ferme le modal de visualisation d'employé si l'utilisateur clique en dehors du contenu
- * Détecte les clics sur le fond du modal (overlay)
- */
-const viewEmployeeModal = document.getElementById("viewEmployeeModal");
-if (viewEmployeeModal) {
-  viewEmployeeModal.addEventListener("click", function(e) {
-    if (e.target === viewEmployeeModal) {
-      closeViewEmployeeModal();
-    }
-  });
-}
-
-/**
- * Génère un employé aléatoire en utilisant l'API RandomUser
- * Récupère un utilisateur aléatoire et remplit automatiquement le formulaire
- * Génère également un CIN, un poste, un département, un salaire et un statut aléatoires
- * Gère les erreurs avec try/catch et affiche un indicateur de chargement
- */
-async function generateRandomEmployee() {
-  try {
-    // Afficher un indicateur de chargement
-    const autoBtn = document.querySelector('.btn-auto');
-    const originalText = autoBtn.innerHTML;
-    autoBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Chargement...';
-    autoBtn.disabled = true;
-
-    // Faire un fetch vers l'API RandomUser
-    const response = await fetch('https://randomuser.me/api/');
-    const data = await response.json();
-    const user = data.results[0];
-
-    // Extraire les données
-    const firstName = user.name.first.charAt(0).toUpperCase() + user.name.first.slice(1);
-    const lastName = user.name.last.charAt(0).toUpperCase() + user.name.last.slice(1);
-    const fullName = `${firstName} ${lastName}`;
-    
-    // Générer un CIN aléatoire (format: 2 lettres + 3 chiffres)
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const randomLetters = letters[Math.floor(Math.random() * letters.length)] + 
-                          letters[Math.floor(Math.random() * letters.length)];
-    const randomNumbers = Math.floor(100 + Math.random() * 900);
-    const cin = `${randomLetters}${randomNumbers}`;
-
-    // Liste de postes possibles
-    const jobs = [
-      'Développeur', 'Designer', 'Chef de projet', 'Marketing Manager',
-      'Analyste', 'Consultant', 'Ingénieur', 'Architecte',
-      'Product Manager', 'Data Analyst', 'UX Designer', 'DevOps',
-      'Business Analyst', 'Scrum Master', 'QA Engineer', 'Tech Lead'
-    ];
-    const randomJob = jobs[Math.floor(Math.random() * jobs.length)];
-
-    // Liste de départements (exclure "Non assigné")
-    const departments = Object.keys(departmentInfo).filter(dept => dept !== "Non assigné");
-    const randomDepartment = departments[Math.floor(Math.random() * departments.length)];
-
-    // Générer un salaire aléatoire entre 5000 et 50000 MAD
-    const randomSalary = Math.floor(5000 + Math.random() * 45000);
-
-    // Générer un identifiant unique
-    const identifier = generateUniqueIdentifier();
-
-    // Remplir les champs du formulaire
-    document.getElementById("empName").value = fullName;
-    document.getElementById("empRole").value = randomJob;
-    document.getElementById("empCin").value = cin;
-    document.getElementById("empIdentifier").value = identifier;
-    document.getElementById("empSalary").value = randomSalary;
-
-    // Sélectionner un département aléatoire
-    const empDepartmentSelect = document.getElementById("empDepartment");
-    const customEmpDepartment = document.getElementById("customEmpDepartment");
-    if (empDepartmentSelect && customEmpDepartment) {
-      empDepartmentSelect.value = randomDepartment;
-      
-      // Mettre à jour le sélecteur personnalisé
-      const customSelectValue = customEmpDepartment.querySelector(".custom-select-value");
-      const customSelectOptions = customEmpDepartment.querySelectorAll(".custom-select-option");
-      
-      if (customSelectValue && customSelectOptions) {
-        const selectedOption = Array.from(customSelectOptions).find(
-          opt => opt.getAttribute("data-value") === randomDepartment
-        );
-        if (selectedOption) {
-          customSelectValue.textContent = selectedOption.textContent;
-          customSelectOptions.forEach(opt => opt.classList.remove("selected"));
-          selectedOption.classList.add("selected");
-        }
-      }
-    }
-
-    // Sélectionner un statut aléatoire
-    const statuses = ["ACTIF", "EN INTÉGRATION"];
-    const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-    document.getElementById("empStatus").value = randomStatus;
-
-    // Restaurer le bouton
-    autoBtn.innerHTML = originalText;
-    autoBtn.disabled = false;
-
-  } catch (error) {
-    console.error("Erreur lors de la génération de l'employé aléatoire:", error);
-    alert("Erreur lors de la génération des données. Veuillez réessayer.");
-    
-    // Restaurer le bouton en cas d'erreur
-    const autoBtn = document.querySelector('.btn-auto');
-    if (autoBtn) {
-      autoBtn.innerHTML = '<i class="fa fa-magic"></i> Auto';
-      autoBtn.disabled = false;
-    }
-  }
-}
-
-/**
- * Ouvre le modal en mode édition pour modifier un employé
- * @param {string} identifier - Identifiant de l'employé à modifier
- */
-function editEmployee(identifier) {
-  openModal(identifier);
-}
-
-//MODIF OU AJOUT EMP 
-form.addEventListener("submit", function (e) {
-  e.preventDefault();
-
-  const employee = {
-    name: empName.value.trim(),
-    role: empRole.value.trim(),
-    cin: empCin.value.trim(),
-    identifier: empIdentifier.value.trim(),
-    department: empDepartment.value,
-    status: empStatus.value,
-    salary: empSalary.value ? parseFloat(empSalary.value) : null
-  };
-
-  if (editingCin) {
-    // Mode édition : mettre à jour l'employé existant
-    const index = employees.findIndex(e => e.identifier === editingCin);
-    if (index !== -1) {
-      // Utiliser l'identifiant original (editingCin) pour éviter tout problème
-      employee.identifier = editingCin;
-      employees[index] = employee;
-    }
-  } else {
-    // ajouter un nouvel employé
-    employees.push(employee);
-  }
-
-  localStorage.setItem("employees", JSON.stringify(employees));
-
-  // Maintenir la recherche actuelle après modification
-  const currentSearch = searchInput.value;
-  const departmentFilter = document.getElementById("filterDepartment")?.value || "";
-  renderEmployees(currentSearch, departmentFilter);
-  // Mettre à jour le graphique si on est sur la page Department
-  if (departmentCard && departmentCard.style.display !== "none") {
-    renderDepartmentChart();
-  }
-  
-  // Mettre à jour le graphique si on est sur le dashboard
-  const dashboardChartCard = document.getElementById("dashboardDepartmentChartCard");
-  if (dashboardChartCard && dashboardChartCard.style.display !== "none") {
-    renderDashboardDepartmentChart();
-  }
-  
-  closeModal();
-});
-
-/**
- * Supprime un employé après confirmation
- * @param {string} identifier - Identifiant de l'employé à supprimer
- * Incrémente le compteur de démissions
- * Met à jour localStorage et réaffiche la liste
- */
-function removeEmployee(identifier) {
-  if (!confirm("Supprimer cet employé ?")) return;
-
-  employees = employees.filter(e => e.identifier !== identifier);
-  leaves++;
-
-  localStorage.setItem("employees", JSON.stringify(employees));
-  localStorage.setItem("leaves", leaves);
-
-  // Maintenir la recherche actuelle après suppression
-  const currentSearch = searchInput.value;
-  const departmentFilter = document.getElementById("filterDepartment")?.value || "";
-  renderEmployees(currentSearch, departmentFilter);
-  // Mettre à jour le graphique si on est sur la page Department
-  if (departmentCard && departmentCard.style.display !== "none") {
-    renderDepartmentChart();
-  }
-  
-  // Mettre à jour le graphique si on est sur le dashboard
-  const dashboardChartCard = document.getElementById("dashboardDepartmentChartCard");
-  if (dashboardChartCard && dashboardChartCard.style.display !== "none") {
-    renderDashboardDepartmentChart();
-  }
-}
-
-/**
- * Met à jour tous les indicateurs KPI du dashboard
- * Calcule le total des employés, candidatures, nouveaux employés et démissions
- * Affiche les valeurs dans les cartes KPI
- */
-function updateKPI() {
-  kpiEmployees.textContent = employees.length;
-
-  kpiNew.textContent = employees.filter(
-    e => e.status === "EN INTÉGRATION"
-  ).length;
-
-  kpiCandidates.textContent = candidates.length;
-  kpiLeave.textContent = leaves;
-}
-
-/**
- * Gestionnaire de recherche en temps réel dans la liste des employés
- * Filtre les employés par identifiant ou nom au fur et à mesure de la saisie
- * Combine la recherche avec le filtre par département si actif
- */
-searchInput.addEventListener("input", function (e) {
-  const searchTerm = e.target.value;
-  const departmentFilter = document.getElementById("filterDepartment")?.value || "";
-  renderEmployees(searchTerm, departmentFilter);
-});
-
-/**
- * Initialise le sélecteur personnalisé de département dans la page employés
- * Remplace le select natif par un composant personnalisé avec style glassmorphism
- * Gère l'ouverture/fermeture du dropdown et la sélection d'options
- * Déclenche le filtrage des employés lors de la sélection
- */
-let customSelectClickHandler = null;
-function initCustomSelect() {
-  const customSelect = document.getElementById("customFilterDepartment");
-  const filterDepartment = document.getElementById("filterDepartment");
-  if (!customSelect || !filterDepartment) return;
-  
-  // Éviter la double initialisation
-  if (customSelect.dataset.initialized === "true") {
-    return;
-  }
-  customSelect.dataset.initialized = "true";
-  
-  const customSelectTrigger = customSelect.querySelector(".custom-select-trigger");
-  const customSelectOptions = customSelect.querySelector(".custom-select-options");
-  const customSelectValue = customSelect.querySelector(".custom-select-value");
-
-  if (customSelectTrigger && customSelectOptions && customSelectValue) {
-    // Initialiser la valeur par défaut
-    const defaultOption = customSelectOptions.querySelector('.custom-select-option[data-value=""]');
-    if (defaultOption) {
-      defaultOption.classList.add("selected");
-    }
-
-    // Ouvrir/fermer select
-    customSelectTrigger.addEventListener("click", function(e) {
-      e.stopPropagation();
-      e.preventDefault();
-      customSelect.classList.toggle("active");
-    });
-
-    // Fermer quand on clique ailleurs
-    customSelectClickHandler = function(e) {
-      if (customSelect && !customSelect.contains(e.target)) {
-        customSelect.classList.remove("active");
-      }
-    };
-    document.addEventListener("click", customSelectClickHandler);
-
-    // Gérer la sélection d'une option
-    const options = customSelectOptions.querySelectorAll(".custom-select-option");
-    options.forEach(option => {
-      option.addEventListener("click", function(e) {
-        e.stopPropagation();
-        e.preventDefault();
-        const value = this.getAttribute("data-value");
-        const text = this.textContent;
-        
-        // Mettre à jour l'affichage
-        customSelectValue.textContent = text;
-        
-        // Mettre à jour le select caché
-        filterDepartment.value = value;
-        
-        // Retirer la sélection précédente
-        options.forEach(opt => opt.classList.remove("selected"));
-        // Ajouter la sélection à l'option choisie
-        this.classList.add("selected");
-        
-        // Fermer le dropdown
-        customSelect.classList.remove("active");
-        
-        // Déclencher le filtrage
-        const searchTerm = searchInput ? searchInput.value : "";
-        renderEmployees(searchTerm, value);
-      });
-    });
-  }
-}
-
-// Sélecteur personnalisé pour le formulaire employé
-/**
- * Initialise le sélecteur personnalisé de département dans le formulaire d'ajout/modification d'employé
- * Synchronise le sélecteur personnalisé avec le select natif caché
- * Gère l'ouverture/fermeture et la sélection d'options
- */
-function initFormCustomSelect() {
-  const customSelect = document.getElementById("customEmpDepartment");
-  const empDepartment = document.getElementById("empDepartment");
-  if (!customSelect || !empDepartment) return;
-  
-  const customSelectTrigger = customSelect.querySelector(".custom-select-trigger");
-  const customSelectOptions = customSelect.querySelector(".custom-select-options");
-  const customSelectValue = customSelect.querySelector(".custom-select-value");
-
-  if (customSelectTrigger && customSelectOptions && customSelectValue) {
-    // Ouvrir/fermer select
-    customSelectTrigger.addEventListener("click", function(e) {
-      e.stopPropagation();
-      customSelect.classList.toggle("active");
-    });
-
-    // Fermer quand on clique ailleurs
-    document.addEventListener("click", function(e) {
-      if (!customSelect.contains(e.target)) {
-        customSelect.classList.remove("active");
-      }
-    });
-
-    // Gérer la sélection d'une option
-    const options = customSelectOptions.querySelectorAll(".custom-select-option");
-    options.forEach(option => {
-      option.addEventListener("click", function(e) {
-        e.stopPropagation();
-        const value = this.getAttribute("data-value");
-        const text = this.textContent;
-        
-        // Mettre à jour l'affichage
-        customSelectValue.textContent = text;
-        
-        // Mettre à jour le select caché
-        empDepartment.value = value;
-        
-        // Retirer la sélection précédente
-        options.forEach(opt => opt.classList.remove("selected"));
-        // Ajouter la sélection à l'option choisie
-        this.classList.add("selected");
-        
-        // Fermer le dropdown
-        customSelect.classList.remove("active");
-      });
-    });
-  }
-}
-
-// Sélecteur personnalisé pour le formulaire candidature
-/**
- * Initialise le sélecteur personnalisé de département dans le formulaire de candidature
- * Synchronise le sélecteur personnalisé avec le select natif caché
- * Gère l'ouverture/fermeture et la sélection d'options
- */
-function initCandidateCustomSelect() {
-  const customSelect = document.getElementById("customCandidateDepartment");
-  const candidateDepartment = document.getElementById("candidateDepartment");
-  if (!customSelect || !candidateDepartment) return;
-  
-  const customSelectTrigger = customSelect.querySelector(".custom-select-trigger");
-  const customSelectOptions = customSelect.querySelector(".custom-select-options");
-  const customSelectValue = customSelect.querySelector(".custom-select-value");
-
-  if (customSelectTrigger && customSelectOptions && customSelectValue) {
-    // Ouvrir/fermer le dropdown
-    customSelectTrigger.addEventListener("click", function(e) {
-      e.stopPropagation();
-      customSelect.classList.toggle("active");
-    });
-
-    // Fermer quand on clique ailleurs
-    document.addEventListener("click", function(e) {
-      if (!customSelect.contains(e.target)) {
-        customSelect.classList.remove("active");
-      }
-    });
-
-    // Gérer la sélection d'une option
-    const options = customSelectOptions.querySelectorAll(".custom-select-option");
-    options.forEach(option => {
-      option.addEventListener("click", function(e) {
-        e.stopPropagation();
-        const value = this.getAttribute("data-value");
-        const text = this.textContent;
-        
-        // Mettre à jour l'affichage
-        customSelectValue.textContent = text;
-        
-        // Mettre à jour le select caché
-        candidateDepartment.value = value;
-        
-        // Retirer la sélection précédente
-        options.forEach(opt => opt.classList.remove("selected"));
-        // Ajouter la sélection à l'option choisie
-        this.classList.add("selected");
-        
-        // Fermer le dropdown
-        customSelect.classList.remove("active");
-      });
-    });
-  }
-}
-
-// Initialiser le sélecteur personnalisé au chargement
-document.addEventListener("DOMContentLoaded", function() {
-  // Petit délai pour s'assurer que le DOM est complètement chargé
-  setTimeout(function() {
-    initCustomSelect();
-    initFormCustomSelect();
-    initCandidateCustomSelect();
-  }, 100);
-});
-
-/**
- * Gestionnaire de changement du filtre par département (select natif)
- * Compatibilité avec l'ancien code - déclenche le filtrage des employés
- */
-document.addEventListener("DOMContentLoaded", function() {
-  const filterDepartment = document.getElementById("filterDepartment");
-  if (filterDepartment) {
-    filterDepartment.addEventListener("change", function (e) {
-      const departmentFilter = e.target.value;
-      const searchTerm = searchInput.value;
-      renderEmployees(searchTerm, departmentFilter);
-    });
-  }
-});
-
-//PLANNING
-
-let currentDate = new Date();
-let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
-
-/**
- * Affiche le calendrier mensuel avec les tâches
- * Calcule les jours du mois, le premier jour de la semaine
- * Affiche les tâches sur les jours correspondants
- * Marque le jour actuel
- */
-function renderCalendar() {
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  
-  // Mettre à jour le titre du mois
-  const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-  document.getElementById("calendarMonthYear").textContent = `${monthNames[month]} ${year}`;
-  
-  // Premier jour du mois
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const daysInMonth = lastDay.getDate();
-  const startingDayOfWeek = (firstDay.getDay() + 6) % 7; // Lundi = 0
-  
-  const calendarGrid = document.getElementById("calendarGrid");
-  calendarGrid.innerHTML = "";
-  
-  // Jours vides avant le premier jour
-  for (let i = 0; i < startingDayOfWeek; i++) {
-    const emptyDay = document.createElement("div");
-    emptyDay.className = "calendar-day empty";
-    calendarGrid.appendChild(emptyDay);
-  }
-  
-  // Jours du mois
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Réinitialiser l'heure pour la comparaison
-  
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dayElement = document.createElement("div");
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const dayDate = new Date(year, month, day);
-    dayDate.setHours(0, 0, 0, 0);
-    
-    const isPast = dayDate < today;
-    const dayTasks = tasks.filter(t => t.date === dateStr);
-    
-    // Fonction pour créer le HTML d'une tâche avec tooltip
-    const createTaskDot = (task) => {
-      const taskInfo = `
-        <div class="task-title">${task.title}</div>
-        ${task.time ? `<div class="task-time">⏰ ${task.time}</div>` : ''}
-        ${task.description ? `<div class="task-description">${task.description}</div>` : ''}
-      `;
-      return `<div class="task-dot-wrapper">
-        <div class="task-dot" data-task-id="${task.id}"></div>
-        <div class="task-tooltip">
-          ${taskInfo}
+    <!-- SECTION EMPLOYÉS (Page dédiée) -->
+    <div class="card" id="employeesCard" style="display: none;">
+      <div class="card-header">
+        <h3>Employes</h3>
+        <div class="search-container">
+          <i class="fa fa-search search-icon"></i>
+          <input type="text" id="searchEmployees" placeholder="Rechercher par identifiant ou nom..." class="search-input">
         </div>
-      </div>`;
-    };
-    
-    if (isPast) {
-      dayElement.className = "calendar-day past";
-      dayElement.innerHTML = `
-        <div class="day-number">${day}</div>
-        <div class="day-tasks">
-          ${dayTasks.map(createTaskDot).join('')}
-        </div>
-      `;
-    } else {
-      dayElement.className = "calendar-day";
-      dayElement.innerHTML = `
-        <div class="day-number">${day}</div>
-        <div class="day-tasks">
-          ${dayTasks.map(createTaskDot).join('')}
-        </div>
-      `;
-      
-      // Ajouter un gestionnaire de clic uniquement pour les jours futurs ou aujourd'hui
-      dayElement.addEventListener("click", () => {
-        openTaskModal(dateStr);
-      });
-    }
-    
-    // Marquer aujourd'hui
-    if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
-      dayElement.classList.add("today");
-    }
-    
-    calendarGrid.appendChild(dayElement);
-  }
-}
-
-/**
- * Affiche le mois précédent dans le calendrier
- * Décrémente le mois et réaffiche le calendrier
- */
-function previousMonth() {
-  currentDate.setMonth(currentDate.getMonth() - 1);
-  renderCalendar();
-}
-
-/**
- * Affiche le mois suivant dans le calendrier
- * Incrémente le mois et réaffiche le calendrier
- */
-function nextMonth() {
-  currentDate.setMonth(currentDate.getMonth() + 1);
-  renderCalendar();
-}
-
-//les taches
-const taskModal = document.getElementById("taskModal");
-const taskForm = document.getElementById("taskForm");
-
-/**
- * Ouvre le modal d'ajout de tâche
- * @param {string|null} selectedDate - Date sélectionnée dans le calendrier (format YYYY-MM-DD)
- * Si aucune date n'est fournie, utilise la date du jour
- * Définit la date minimale à aujourd'hui pour éviter les dates passées
- */
-function openTaskModal(selectedDate = null) {
-  taskModal.classList.remove("hidden");
-  // Utiliser la date sélectionnée ou la date du jour par défaut
-  const today = new Date().toISOString().split('T')[0];
-  const dateToUse = selectedDate || today;
-  
-  const dateInput = document.getElementById("taskDate");
-  dateInput.value = dateToUse;
-  dateInput.min = today; 
-}
-
-/**
- * Ferme le modal d'ajout de tâche
- * Réinitialise le formulaire
- */
-function closeTaskModal() {
-  taskModal.classList.add("hidden");
-  taskForm.reset();
-}
-
-/**
- * Ferme le modal de tâche si l'utilisateur clique en dehors du contenu
- * Détecte les clics sur le fond du modal (overlay)
- */
-taskModal.addEventListener("click", (e) => {
-  if (e.target === taskModal) closeTaskModal();
-});
-
-/**
- * Gestionnaire de soumission du formulaire d'ajout de tâche
- * Vérifie que la date n'est pas dans le passé
- * Vérifie qu'il n'y a pas déjà une tâche à la même date et heure
- * Crée la tâche et la sauvegarde dans localStorage
- * Met à jour le calendrier et les tâches d'aujourd'hui
- */
-taskForm.addEventListener("submit", function (e) {
-  e.preventDefault();
-  
-  const taskDate = document.getElementById("taskDate").value;
-  const taskTime = document.getElementById("taskTime").value;
-  const today = new Date().toISOString().split('T')[0];
-  
-  // Vérifier que la date n'est pas dans le passé
-  if (taskDate < today) {
-    alert("Vous ne pouvez pas créer une tâche pour une date passée.");
-    return;
-  }
-  
-  // Vérifier qu'il n'y a pas déjà une tâche à la même date et heure
-  const conflictingTask = tasks.find(t => t.date === taskDate && t.time === taskTime);
-  if (conflictingTask) {
-    alert(`Vous avez déjà une tâche prévue le ${new Date(taskDate).toLocaleDateString('fr-FR')} à ${taskTime}. Vous ne pouvez pas avoir deux tâches à la même heure.`);
-    return;
-  }
-  
-  const task = {
-    id: Date.now(),
-    title: document.getElementById("taskTitle").value.trim(),
-    date: taskDate,
-    time: taskTime,
-    description: document.getElementById("taskDescription").value.trim()
-  };
-  
-  tasks.push(task);
-  localStorage.setItem("tasks", JSON.stringify(tasks));
-  
-  renderCalendar();
-  closeTaskModal();
-  
-  // Mettre à jour les tâches d'aujourd'hui si on est sur le dashboard
-  const dashboardContent = document.getElementById("dashboardContent");
-  if (dashboardContent && dashboardContent.style.display !== "none") {
-    renderTodayTasks();
-  }
-});
-// Département /Graphique
-let departmentChart = null;
-let dashboardDepartmentChart = null;
-
-
-// Charger les départements depuis localStorage ou utiliser les valeurs par défaut
-let departmentInfo = JSON.parse(localStorage.getItem("departmentInfo")) || {
-  "Business et marketing": {
-    color: "#2D5A3D",
-    icon: "fa-briefcase",
-    label: "Business et marketing"
-  },
-  "Design": {
-    color: "#8b5cf6",
-    icon: "fa-palette",
-    label: "Design"
-  },
-  "Gestion de projet": {
-    color: "#f59e0b",
-    icon: "fa-tasks",
-    label: "Gestion de projet"
-  },
-  "Ressources humaines": {
-    color: "#ef4444",
-    icon: "fa-handshake",
-    label: "Ressources humaines"
-  },
-  "Développement": {
-    color: "#252c5f",
-    icon: "fa-code",
-    label: "Développement"
-  },
-  "Non assigné": {
-    color: "#94a3b8",
-    icon: "fa-building",
-    label: "Non assigné"
-  }
-};
-
-/**
- * Sauvegarde la liste des départements dans localStorage
- * Permet la persistance des départements entre les sessions
- */
-function saveDepartments() {
-  localStorage.setItem("departmentInfo", JSON.stringify(departmentInfo));
-}
-
-/**
- * Affiche la liste des départements dans la sidebar
- * Génère dynamiquement les éléments de liste avec point coloré et boutons d'action
- * Exclut le département "Non assigné" de l'affichage
- * Ajoute les boutons modifier et supprimer pour chaque département
- */
-function renderDepartmentsList() {
-  const departmentsList = document.getElementById("departmentsList");
-  if (!departmentsList) return;
-  
-  departmentsList.innerHTML = '';
-  
-  // Exclure "Non assigné" de la liste
-  const departments = Object.entries(departmentInfo).filter(([name]) => name !== "Non assigné");
-  
-  departments.forEach(([name, info]) => {
-    const li = document.createElement('li');
-    li.innerHTML = `
-      <span class="dot" style="background-color: ${info.color}"></span>
-      <span>${info.label}</span>
-      <div class="department-actions">
-        <button class="btn-edit-department" onclick="editDepartment('${name}')" title="Modifier le département">
-          <i class="fa fa-edit"></i>
-        </button>
-        <button class="btn-delete-department" onclick="deleteDepartment('${name}')" title="Supprimer le département">
-          <i class="fa fa-trash"></i>
-        </button>
-      </div>
-    `;
-    departmentsList.appendChild(li);
-  });
-}
-
-/**
- * Met à jour tous les sélecteurs de département dans l'application
- * Synchronise les selects natifs et les sélecteurs personnalisés
- * Mise à jour dans : formulaire employé, formulaire candidature, filtre employés
- * Réinitialise les sélecteurs personnalisés après mise à jour
- */
-function updateDepartmentSelects() {
-  // Mettre à jour le select du formulaire employé
-  const empDepartmentSelect = document.getElementById("empDepartment");
-  const customEmpDepartment = document.getElementById("customEmpDepartment");
-  if (empDepartmentSelect && customEmpDepartment) {
-    const customOptions = customEmpDepartment.querySelector(".custom-select-options");
-    if (customOptions) {
-      customOptions.innerHTML = '<div class="custom-select-option" data-value="">Sélectionner</div>';
-      Object.keys(departmentInfo).forEach(dept => {
-        if (dept !== "Non assigné") {
-          customOptions.innerHTML += `<div class="custom-select-option" data-value="${dept}">${departmentInfo[dept].label}</div>`;
-        }
-      });
-    }
-    
-    empDepartmentSelect.innerHTML = '<option value="">Sélectionner</option>';
-    Object.keys(departmentInfo).forEach(dept => {
-      if (dept !== "Non assigné") {
-        empDepartmentSelect.innerHTML += `<option value="${dept}">${departmentInfo[dept].label}</option>`;
-      }
-    });
-    
-    // Réinitialiser le sélecteur personnalisé
-    if (typeof initFormCustomSelect === 'function') {
-      initFormCustomSelect();
-    }
-  }
-  
-  // Mettre à jour le select du formulaire candidat
-  const candidateDepartmentSelect = document.getElementById("candidateDepartment");
-  const customCandidateDepartment = document.getElementById("customCandidateDepartment");
-  if (candidateDepartmentSelect && customCandidateDepartment) {
-    const customOptions = customCandidateDepartment.querySelector(".custom-select-options");
-    if (customOptions) {
-      customOptions.innerHTML = '<div class="custom-select-option" data-value="">Sélectionner</div>';
-      Object.keys(departmentInfo).forEach(dept => {
-        if (dept !== "Non assigné") {
-          customOptions.innerHTML += `<div class="custom-select-option" data-value="${dept}">${departmentInfo[dept].label}</div>`;
-        }
-      });
-    }
-    
-    candidateDepartmentSelect.innerHTML = '<option value="">Sélectionner</option>';
-    Object.keys(departmentInfo).forEach(dept => {
-      if (dept !== "Non assigné") {
-        candidateDepartmentSelect.innerHTML += `<option value="${dept}">${departmentInfo[dept].label}</option>`;
-      }
-    });
-    
-    // Réinitialiser le sélecteur personnalisé
-    if (typeof initCandidateCustomSelect === 'function') {
-      initCandidateCustomSelect();
-    }
-  }
-  
-  // Mettre à jour le filtre de département dans la page employés
-  const filterDepartmentSelect = document.getElementById("filterDepartment");
-  const customFilterDepartment = document.getElementById("customFilterDepartment");
-  if (filterDepartmentSelect && customFilterDepartment) {
-    const customOptions = customFilterDepartment.querySelector(".custom-select-options");
-    if (customOptions) {
-      customOptions.innerHTML = '<div class="custom-select-option" data-value="">Tous les départements</div>';
-      Object.keys(departmentInfo).forEach(dept => {
-        if (dept !== "Non assigné") {
-          customOptions.innerHTML += `<div class="custom-select-option" data-value="${dept}">${departmentInfo[dept].label}</div>`;
-        }
-      });
-    }
-    
-    filterDepartmentSelect.innerHTML = '<option value="">Tous les départements</option>';
-    Object.keys(departmentInfo).forEach(dept => {
-      if (dept !== "Non assigné") {
-        filterDepartmentSelect.innerHTML += `<option value="${dept}">${departmentInfo[dept].label}</option>`;
-      }
-    });
-    
-    // Réinitialiser le sélecteur personnalisé
-    if (typeof initCustomSelect === 'function') {
-      initCustomSelect();
-    }
-  }
-}
-
-/**
- * Génère le graphique de répartition par département dans la page Department
- * Crée un graphique en barres horizontales avec Chart.js
- * Calcule les statistiques (nombre d'employés par département, pourcentages)
- * Affiche les cartes de statistiques à gauche avec pourcentages et descriptions
- * Met à jour automatiquement lors des changements de données
- */
-function renderDepartmentChart() {
-  const ctx = document.getElementById("departmentChart");
-  const statsContainer = document.getElementById("departmentStats");
-  
-  if (!ctx || !statsContainer) {
-    console.log("Canvas ou conteneur de stats non trouvé");
-    return;
-  }
-
-  // Vérifier que Chart.js est chargé
-  if (typeof Chart === 'undefined') {
-    console.error("Chart.js n'est pas chargé");
-    return;
-  }
-
-  // Calculer le nombre d'employés par département
-  const departmentCounts = {};
-  employees.forEach(emp => {
-    const dept = emp.department || "Non assigné";
-    departmentCounts[dept] = (departmentCounts[dept] || 0) + 1;
-  });
-
-  // Calculer le total pour les pourcentages
-  const total = employees.length || 1;
-
-  // Trier les départements par nombre d'employés (décroissant)
-  const sortedDepartments = Object.entries(departmentCounts)
-    .sort((a, b) => b[1] - a[1]);
-
-  // Générer les statistiques sur le côté
-  statsContainer.innerHTML = '';
-  sortedDepartments.forEach(([dept, count], index) => {
-    const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
-    const info = departmentInfo[dept] || {
-      color: "#94a3b8",
-      icon: "fa-building",
-      label: dept
-    };
-    
-    const statItem = document.createElement('div');
-    statItem.className = 'stat-item';
-    
-    // Ne pas afficher les boutons modifier/supprimer pour "Non assigné"
-    const actionButtons = dept !== "Non assigné" 
-      ? `<div class="stat-actions">
-           <button class="btn-edit-stat" onclick="editDepartment('${dept}')" title="Modifier le département">
-             <i class="fa fa-edit"></i>
-           </button>
-           <button class="btn-delete-stat" onclick="deleteDepartment('${dept}')" title="Supprimer le département">
-             <i class="fa fa-trash"></i>
-           </button>
-         </div>`
-      : '';
-    
-    statItem.innerHTML = `
-      <div class="stat-icon" style="color: ${info.color}">
-        <i class="fa ${info.icon}"></i>
-      </div>
-      <div class="stat-content">
-        <div class="stat-percentage" style="color: ${info.color}">${percentage}%</div>
-        <div class="stat-label">${info.label}</div>
-        <div class="stat-description">${count} employé${count > 1 ? 's' : ''} dans ce département</div>
-      </div>
-      ${actionButtons}
-    `;
-    statsContainer.appendChild(statItem);
-  });
-
-  // Si aucun employé
-  if (sortedDepartments.length === 0 || total === 0) {
-    statsContainer.innerHTML = '<div class="stat-item"><div class="stat-description">Aucun employé enregistré</div></div>';
-    
-    // Afficher un graphique vide avec tous les départements à 0
-    const allDepartments = Object.keys(departmentInfo).filter(dept => dept !== "Non assigné");
-    const labels = allDepartments.map(dept => departmentInfo[dept].label);
-    const data = new Array(allDepartments.length).fill(0);
-    const backgroundColors = allDepartments.map(dept => departmentInfo[dept].color);
-    
-    if (departmentChart) {
-      departmentChart.destroy();
-    }
-    
-    departmentChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Nombre d\'employés',
-          data: data,
-          backgroundColor: backgroundColors,
-          borderColor: backgroundColors,
-          borderWidth: 2,
-          borderRadius: 8,
-          borderSkipped: false,
-          barThickness: 50,
-          maxBarThickness: 60
-        }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        layout: {
-          padding: {
-            left: 10,
-            right: 20,
-            top: 10,
-            bottom: 10
-          }
-        },
-        plugins: {
-          legend: {
-            display: false
-          }
-        },
-        scales: {
-          x: {
-            beginAtZero: true,
-            grid: {
-              color: 'rgba(255, 255, 255, 0.1)',
-              lineWidth: 1
-            },
-            ticks: {
-              color: 'rgba(255, 255, 255, 0.7)',
-              font: {
-                size: 12
-              },
-              stepSize: 1
-            }
-          },
-          y: {
-            grid: {
-              display: false
-            },
-            ticks: {
-              color: 'rgba(255, 255, 255, 0.8)',
-              font: {
-                size: 13,
-                weight: '500'
-              }
-            }
-          }
-        }
-      }
-    });
-    return;
-  }
-
-  // Préparer les données pour le graphique en barres horizontales
-  const labels = sortedDepartments.map(([dept]) => departmentInfo[dept]?.label || dept);
-  const data = sortedDepartments.map(([dept, count]) => count);
-  const backgroundColors = sortedDepartments.map(([dept]) => {
-    const info = departmentInfo[dept] || {
-      color: "#94a3b8",
-      icon: "fa-building",
-      label: dept
-    };
-    return info.color;
-  });
-
-  // Détruire le graphique existant s'il existe
-  if (departmentChart) {
-    departmentChart.destroy();
-  }
-
-  // Créer le graphique en barres horizontales
-  departmentChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Nombre d\'employés',
-        data: data,
-        backgroundColor: backgroundColors,
-        borderColor: backgroundColors,
-        borderWidth: 2,
-        borderRadius: 8,
-        borderSkipped: false,
-        barThickness: 50,
-        maxBarThickness: 60
-      }]
-    },
-    options: {
-      indexAxis: 'y', // Barres horizontales
-      responsive: true,
-      maintainAspectRatio: false,
-      layout: {
-        padding: {
-          left: 10,
-          right: 20,
-          top: 10,
-          bottom: 10
-        }
-      },
-      plugins: {
-        legend: {
-          display: false
-        },
-        tooltip: {
-          backgroundColor: 'rgba(0, 0, 0, 0.85)',
-          padding: 14,
-          titleFont: {
-            size: 14,
-            weight: 'bold'
-          },
-          bodyFont: {
-            size: 13
-          },
-          borderColor: 'rgba(255, 255, 255, 0.2)',
-          borderWidth: 1,
-          cornerRadius: 8,
-          displayColors: true,
-          callbacks: {
-            title: function(context) {
-              return context[0].label;
-            },
-            label: function(context) {
-              const value = context.parsed.x || 0;
-              if (value === 0) return null;
-              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-              return `${value} employé${value > 1 ? 's' : ''} (${percentage}%)`;
-            },
-            labelColor: function(context) {
-              return {
-                borderColor: backgroundColors[context.dataIndex],
-                backgroundColor: backgroundColors[context.dataIndex],
-                borderWidth: 2,
-                borderRadius: 4
-              };
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          beginAtZero: true,
-          grid: {
-            color: 'rgba(255, 255, 255, 0.1)',
-            lineWidth: 1
-          },
-          ticks: {
-            color: 'rgba(255, 255, 255, 0.7)',
-            font: {
-              size: 12
-            },
-            stepSize: 1
-          }
-        },
-        y: {
-          grid: {
-            display: false
-          },
-          ticks: {
-            color: 'rgba(255, 255, 255, 0.8)',
-            font: {
-              size: 13,
-              weight: '500'
-            }
-          }
-        }
-      },
-      animation: {
-        duration: 1200,
-        easing: 'easeOutQuart'
-      }
-    }
-  });
-}
-
-/**
- * Génère le graphique de répartition par département dans le dashboard
- * Crée un graphique en donut avec Chart.js
- * Affiche le total d'employés au centre du graphique
- * Inclut tous les départements même ceux sans employés
- * Met à jour automatiquement lors des changements de données
- */
-function renderDashboardDepartmentChart() {
-  const ctx = document.getElementById("dashboardDepartmentChart");
-  const chartCenterText = document.getElementById("dashboardChartCenterText");
-  
-  if (!ctx) {
-    console.log("Canvas du dashboard non trouvé");
-    return;
-  }
-
-  // Vérifier que Chart.js est chargé
-  if (typeof Chart === 'undefined') {
-    console.error("Chart.js n'est pas chargé");
-    return;
-  }
-
-  // Calculer le nombre d'employés par département
-  const departmentCounts = {};
-  employees.forEach(emp => {
-    const dept = emp.department || "Non assigné";
-    departmentCounts[dept] = (departmentCounts[dept] || 0) + 1;
-  });
-
-  // Calculer le total pour les pourcentages
-  const total = employees.length || 1;
-
-  // Mettre à jour le texte au centre du donut
-  if (chartCenterText) {
-    chartCenterText.innerHTML = `
-      <h4>RÉPARTITION</h4>
-      <p>PAR DÉPARTEMENT</p>
-      <p style="font-size: 18px; font-weight: bold; margin-top: 8px; color: rgba(255, 255, 255, 0.9);">${total} employé${total > 1 ? 's' : ''}</p>
-    `;
-  }
-
-  // Préparer les données pour le graphique en donut
-  // S'assurer que tous les départements sont inclus, même ceux sans employés
-  const allDepartments = Object.keys(departmentInfo).filter(dept => dept !== "Non assigné");
-  const labels = [];
-  const data = [];
-  const backgroundColors = [];
-  const borderColors = [];
-
-  allDepartments.forEach(dept => {
-    const count = departmentCounts[dept] || 0;
-    const info = departmentInfo[dept];
-    
-    labels.push(info.label);
-    data.push(count);
-    backgroundColors.push(info.color);
-    borderColors.push(info.color);
-  });
-
-  // Ajouter "Non assigné" s'il y a des employés non assignés
-  if (departmentCounts["Non assigné"] > 0) {
-    const info = departmentInfo["Non assigné"];
-    labels.push(info.label);
-    data.push(departmentCounts["Non assigné"]);
-    backgroundColors.push(info.color);
-    borderColors.push(info.color);
-  }
-
-  // Détruire le graphique existant s'il existe
-  if (dashboardDepartmentChart) {
-    dashboardDepartmentChart.destroy();
-  }
-
-  // Créer le graphique en donut
-  dashboardDepartmentChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Nombre d\'employés',
-        data: data,
-        backgroundColor: backgroundColors,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderWidth: 3,
-        cutout: '70%'
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      layout: {
-        padding: 20
-      },
-      plugins: {
-        legend: {
-          display: false
-        },
-        tooltip: {
-          backgroundColor: 'rgba(0, 0, 0, 0.85)',
-          padding: 14,
-          titleFont: {
-            size: 14,
-            weight: 'bold'
-          },
-          bodyFont: {
-            size: 13
-          },
-          borderColor: 'rgba(255, 255, 255, 0.2)',
-          borderWidth: 1,
-          cornerRadius: 8,
-          displayColors: true,
-          callbacks: {
-            title: function(context) {
-              return context[0].label;
-            },
-            label: function(context) {
-              const value = context.parsed || 0;
-              if (value === 0) return null;
-              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-              return `${value} employé${value > 1 ? 's' : ''} (${percentage}%)`;
-            },
-            labelColor: function(context) {
-              return {
-                borderColor: backgroundColors[context.dataIndex],
-                backgroundColor: backgroundColors[context.dataIndex],
-                borderWidth: 2,
-                borderRadius: 4
-              };
-            }
-          }
-        }
-      },
-      animation: {
-        duration: 1200,
-        easing: 'easeOutQuart'
-      }
-    }
-  });
-}
-//initialisation
-// S'assurer que tous les employés ont un identifiant
-ensureAllEmployeesHaveIdentifier();
-
-// Définir la date minimale pour le champ date (aujourd'hui)
-const taskDateInput = document.getElementById("taskDate");
-if (taskDateInput) {
-  const today = new Date().toISOString().split('T')[0];
-  taskDateInput.min = today;
-}
-
-
- //LOGIN
-
-const loginPage = document.getElementById("loginPage");
-const dashboardApp = document.getElementById("dashboardApp");
-const loginForm = document.getElementById("loginForm");
-const loginError = document.getElementById("loginError");
-
-/**
- * Vérifie si l'utilisateur est déjà connecté
- * Vérifie la présence de la clé "isLoggedIn" dans localStorage
- * Affiche le dashboard si connecté, sinon affiche la page de connexion
- */
-function checkLogin() {
-  const isLoggedIn = localStorage.getItem("isLoggedIn");
-  if (isLoggedIn === "true") {
-    showDashboardApp();
-  } else {
-    showLoginPage();
-  }
-}
-
-/**
- * Affiche la page de connexion
- * Cache le dashboard et affiche le formulaire de connexion
- */
-function showLoginPage() {
-  if (loginPage) loginPage.style.display = "flex";
-  if (dashboardApp) dashboardApp.style.display = "none";
-}
-
-/**
- * Affiche l'application dashboard après connexion
- * Cache la page de connexion et affiche le dashboard principal
- */
-function showDashboardApp() {
-  if (loginPage) loginPage.style.display = "none";
-  if (dashboardApp) dashboardApp.style.display = "flex";
-showDashboard();
-}
-
-/**
- * Gestionnaire de soumission du formulaire de connexion
- * Vérifie les identifiants (nom et mot de passe)
- * Sauvegarde l'état de connexion dans localStorage
- * Redirige vers le dashboard en cas de succès
- */
-if (loginForm) {
-  loginForm.addEventListener("submit", function(e) {
-    e.preventDefault();
-    
-    const username = document.getElementById("loginName").value.trim();
-    const password = document.getElementById("loginPassword").value.trim();
-    
-    //verification du mdp et username
-    if (username === "malak" && password === "assya") {
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("username", username);
-      loginError.style.display = "none";
-      showDashboardApp();
-    } else {
-      loginError.style.display = "block";
-      loginError.textContent = "Nom d'utilisateur ou mot de passe incorrect";
-    }
-  });
-}
-
-/**
- * Déconnecte l'utilisateur et retourne à la page de connexion
- * Supprime les données de connexion de localStorage
- * Demande confirmation avant de déconnecter
- * Réinitialise le formulaire de connexion
- */
-function logout() {
-  if (confirm("Êtes-vous sûr de vouloir vous déconnecter ?")) {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("username");
-    showLoginPage();
-    // Réinitialiser le formulaire
-    if (loginForm) {
-      loginForm.reset();
-    }
-    if (loginError) {
-      loginError.style.display = "none";
-    }
-  }
-}
-
-// Gérer le lien "Mot de passe oublié"
-document.addEventListener("DOMContentLoaded", function() {
-  const forgotPasswordLink = document.querySelector(".forgot-password");
-  if (forgotPasswordLink) {
-    forgotPasswordLink.addEventListener("click", function(e) {
-      e.preventDefault();
-      alert("Fonctionnalité à venir : réinitialisation du mot de passe");
-    });
-  }
-});
-
-// Initialiser la page
-checkLogin();
-
-// Initialiser le bouton "Voir tout" au chargement
-document.addEventListener("DOMContentLoaded", function() {
-  const viewAllBtn = document.getElementById("viewAllEmployeesBtn");
-  if (viewAllBtn) {
-    viewAllBtn.style.display = "inline-block";
-    viewAllBtn.style.visibility = "visible";
-  }
-});
-
-//candidatures
-function renderCandidates(searchTerm = "") {
-  if (!candidatesBody) return;
-  
-  candidatesBody.innerHTML = "";
-
-  // Filtrer les candidatures
-  let filteredCandidates = candidates;
-  if (searchTerm && searchTerm.trim() !== "") {
-    const searchLower = searchTerm.toLowerCase().trim();
-    
-    filteredCandidates = candidates.filter((c) => {
-      // Chercher dans chaque champ individuellement pour une meilleure précision
-      const nameMatch = c.name.toLowerCase().includes(searchLower);
-      const emailMatch = (c.email || '').toLowerCase().includes(searchLower);
-      const phoneMatch = (c.phone || '').toLowerCase().includes(searchLower);
-      const roleMatch = c.role.toLowerCase().includes(searchLower);
-      const departmentMatch = (c.department || '').toLowerCase().includes(searchLower);
-      const statusMatch = (c.status || '').toLowerCase().includes(searchLower);
-      
-      // Retourner true si au moins un champ correspond
-      return nameMatch || emailMatch || phoneMatch || roleMatch || departmentMatch || statusMatch;
-    });
-  }
-
-  // Trier par date (plus récent en premier)
-  filteredCandidates.sort((a, b) => {
-    const dateA = new Date(a.date || 0);
-    const dateB = new Date(b.date || 0);
-    return dateB - dateA;
-  });
-
-  if (filteredCandidates.length === 0) {
-    candidatesBody.innerHTML = `
-      <tr>
-        <td colspan="8" style="text-align: center; padding: 40px; color: var(--muted);">
-          Aucune candidature trouvée
-        </td>
-      </tr>
-    `;
-  } else {
-    filteredCandidates.forEach((c) => {
-      const date = c.date ? new Date(c.date).toLocaleDateString('fr-FR') : 'N/A';
-      const statusClass = c.status === 'ACCEPTÉE' ? 'active' : 
-                         c.status === 'REFUSÉE' ? 'onboarding' : 
-                         c.status === 'EN COURS' ? 'active' : 'onboarding';
-      
-      candidatesBody.innerHTML += `
-        <tr>
-          <td class="employee">
-            <img src="https://i.pravatar.cc/40?u=${c.email || c.id}">
-            ${c.name}
-          </td>
-          <td>${c.role}</td>
-          <td>${c.email || 'N/A'}</td>
-          <td>${c.phone || 'N/A'}</td>
-          <td>${c.department || 'Non spécifié'}</td>
-          <td>
-            <span class="status ${statusClass}">
-              ${c.status}
-            </span>
-          </td>
-          <td>${date}</td>
-          <td class="actions">
-            <button class="btn-icon edit" onclick="editCandidate('${c.id}')" title="Modifier">
-              <i class="fa fa-edit"></i>
-            </button>
-            <button class="btn-icon delete" onclick="removeCandidate('${c.id}')" title="Supprimer">
-              <i class="fa fa-trash"></i>
-            </button>
-          </td>
-        </tr>
-      `;
-    });
-  }
-
-  updateKPI();
-}
-
-/**
- * Ouvre le modal d'ajout/modification de candidature
- * @param {string|null} candidateId - ID de la candidature à modifier (null pour ajouter)
- * Remplit le formulaire avec les données de la candidature si en mode édition
- * Met à jour le titre et le bouton de soumission selon le mode
- */
-function openCandidateModal(candidateId = null) {
-  editingCandidateId = candidateId;
-  
-  // Mettre à jour le sélecteur personnalisé
-  const customCandidateDepartment = document.getElementById("customCandidateDepartment");
-  const customSelectValue = customCandidateDepartment?.querySelector(".custom-select-value");
-  const customSelectOptions = customCandidateDepartment?.querySelectorAll(".custom-select-option");
-  
-  if (candidateId) {
-    const candidate = candidates.find(c => c.id === candidateId);
-    if (candidate) {
-      document.getElementById("candidateName").value = candidate.name;
-      document.getElementById("candidateEmail").value = candidate.email || '';
-      document.getElementById("candidatePhone").value = candidate.phone || '';
-      document.getElementById("candidateRole").value = candidate.role;
-      document.getElementById("candidateDepartment").value = candidate.department || '';
-      document.getElementById("candidateStatus").value = candidate.status;
-      document.getElementById("candidateNotes").value = candidate.notes || '';
-      
-      // Mettre à jour le sélecteur personnalisé
-      if (customSelectValue && customSelectOptions) {
-        const selectedOption = Array.from(customSelectOptions).find(opt => opt.getAttribute("data-value") === candidate.department);
-        if (selectedOption) {
-          customSelectValue.textContent = selectedOption.textContent;
-          customSelectOptions.forEach(opt => opt.classList.remove("selected"));
-          selectedOption.classList.add("selected");
-        } else {
-          customSelectValue.textContent = candidate.department || "Sélectionner";
-        }
-      }
-      
-      document.getElementById("candidateModalTitle").textContent = "Modifier une candidature";
-      document.getElementById("candidateSubmitBtn").textContent = "Modifier";
-    }
-  } else {
-    candidateForm.reset();
-    
-    // Réinitialiser le sélecteur personnalisé
-    if (customSelectValue) {
-      customSelectValue.textContent = "Sélectionner";
-    }
-    if (customSelectOptions) {
-      customSelectOptions.forEach(opt => opt.classList.remove("selected"));
-      const defaultOption = Array.from(customSelectOptions).find(opt => opt.getAttribute("data-value") === "");
-      if (defaultOption) {
-        defaultOption.classList.add("selected");
-      }
-    }
-    
-    document.getElementById("candidateModalTitle").textContent = "Ajouter une candidature";
-    document.getElementById("candidateSubmitBtn").textContent = "Ajouter";
-  }
-  
-  candidateModal.classList.remove("hidden");
-}
-
-/**
- * Ferme le modal d'ajout/modification de candidature
- * Réinitialise le formulaire et les variables d'édition
- * Réinitialise le sélecteur personnalisé de département
- */
-function closeCandidateModal() {
-  candidateModal.classList.add("hidden");
-  candidateForm.reset();
-  editingCandidateId = null;
-  
-  // Réinitialiser le sélecteur personnalisé
-  const customCandidateDepartment = document.getElementById("customCandidateDepartment");
-  const customSelectValue = customCandidateDepartment?.querySelector(".custom-select-value");
-  const customSelectOptions = customCandidateDepartment?.querySelectorAll(".custom-select-option");
-  if (customSelectValue) {
-    customSelectValue.textContent = "Sélectionner";
-  }
-  if (customSelectOptions) {
-    customSelectOptions.forEach(opt => opt.classList.remove("selected"));
-    const defaultOption = Array.from(customSelectOptions).find(opt => opt.getAttribute("data-value") === "");
-    if (defaultOption) {
-      defaultOption.classList.add("selected");
-    }
-  }
-}
-
-/**
- * Ferme le modal de candidature si l'utilisateur clique en dehors du contenu
- * Détecte les clics sur le fond du modal (overlay)
- */
-candidateModal.addEventListener("click", (e) => {
-  if (e.target === candidateModal) closeCandidateModal();
-});
-
-candidateForm.addEventListener("submit", function (e) {
-  e.preventDefault();
-
-  const newStatus = document.getElementById("candidateStatus").value;
-  const wasAccepted = editingCandidateId ? 
-    candidates.find(c => c.id === editingCandidateId)?.status === "ACCEPTÉE" : false;
-  const isNowAccepted = newStatus === "ACCEPTÉE";
-
-  const candidate = {
-    id: editingCandidateId || Date.now().toString(),
-    name: document.getElementById("candidateName").value.trim(),
-    email: document.getElementById("candidateEmail").value.trim(),
-    phone: document.getElementById("candidatePhone").value.trim(),
-    role: document.getElementById("candidateRole").value.trim(),
-    department: document.getElementById("candidateDepartment").value,
-    status: newStatus,
-    notes: document.getElementById("candidateNotes").value.trim(),
-    date: editingCandidateId ? 
-      candidates.find(c => c.id === editingCandidateId)?.date || new Date().toISOString() :
-      new Date().toISOString()
-  };
-
-  if (editingCandidateId) {
-    const index = candidates.findIndex(c => c.id === editingCandidateId);
-    if (index !== -1) {
-      candidates[index] = candidate;
-    }
-  } else {
-    candidates.push(candidate);
-  }
-
-  localStorage.setItem("candidates", JSON.stringify(candidates));
-
-  // Si la candidature est acceptée et n'était pas déjà acceptée, créer automatiquement un employé
-  if (isNowAccepted && !wasAccepted) {
-    // Vérifier si l'employé n'existe pas déjà
-    const employeeExists = employees.some(e => 
-      e.name === candidate.name && e.role === candidate.role
-    );
-
-    if (!employeeExists) {
-      const newEmployee = {
-        name: candidate.name,
-        role: candidate.role,
-        cin: '', // À remplir manuellement
-        identifier: generateUniqueIdentifier(),
-        department: candidate.department || '',
-        status: "EN INTÉGRATION"
-      };
-
-      employees.push(newEmployee);
-      localStorage.setItem("employees", JSON.stringify(employees));
-
-      // Supprimer la candidature de la liste puisqu'elle est acceptée
-      candidates = candidates.filter(c => c.id !== candidate.id);
-      localStorage.setItem("candidates", JSON.stringify(candidates));
-
-      // Mettre à jour les affichages
-      renderEmployees();
-      updateKPI();
-      
-      // Mettre à jour le graphique si on est sur la page Department
-      if (departmentCard && departmentCard.style.display !== "none") {
-        renderDepartmentChart();
-      }
-
-      alert(`${candidate.name} a été automatiquement ajouté(e) comme employé(e) avec le statut "EN INTÉGRATION". La candidature a été supprimée de la liste.`);
-    }
-  }
-
-  const currentSearch = searchCandidatesInput ? searchCandidatesInput.value : "";
-  renderCandidates(currentSearch);
-  closeCandidateModal();
-});
-
-/**
- * Ouvre le modal en mode édition pour modifier une candidature
- * @param {string} id - ID de la candidature à modifier
- */
-function editCandidate(id) {
-  openCandidateModal(id);
-}
-
-/**
- * Supprime une candidature après confirmation
- * @param {string} id - ID de la candidature à supprimer
- * Met à jour localStorage et réaffiche la liste
- * Met à jour les KPIs
- */
-function removeCandidate(id) {
-  if (!confirm("Supprimer cette candidature ?")) return;
-
-  candidates = candidates.filter(c => c.id !== id);
-  localStorage.setItem("candidates", JSON.stringify(candidates));
-  renderCandidates();
-  updateKPI();
-}
-
-// ==================== GESTION DES DÉPARTEMENTS ====================
-
-// Liste d'icônes Font Awesome courantes pour les départements
-const availableIcons = [
-  'fa-briefcase', 'fa-code', 'fa-palette', 'fa-tasks', 'fa-handshake',
-  'fa-building', 'fa-users', 'fa-chart-line', 'fa-laptop', 'fa-mobile-alt',
-  'fa-cog', 'fa-shield-alt', 'fa-graduation-cap', 'fa-flask', 'fa-microscope',
-  'fa-paint-brush', 'fa-camera', 'fa-video', 'fa-music', 'fa-book',
-  'fa-lightbulb', 'fa-rocket', 'fa-globe', 'fa-network-wired', 'fa-server',
-  'fa-database', 'fa-cloud', 'fa-lock', 'fa-key', 'fa-tools',
-  'fa-wrench', 'fa-hammer', 'fa-screwdriver', 'fa-clipboard', 'fa-file-alt',
-  'fa-folder', 'fa-archive', 'fa-box', 'fa-shipping-fast', 'fa-truck',
-  'fa-store', 'fa-shopping-cart', 'fa-credit-card', 'fa-money-bill', 'fa-chart-bar',
-  'fa-chart-pie', 'fa-chart-area', 'fa-bullhorn', 'fa-megaphone', 'fa-bell',
-  'fa-envelope', 'fa-phone', 'fa-headset', 'fa-comments', 'fa-user-tie',
-  'fa-user-cog', 'fa-user-shield', 'fa-user-md', 'fa-user-graduate', 'fa-user-astronaut'
-];
-
-/**
- * Génère une icône Font Awesome aléatoire pour un département
- * Sélectionne une icône parmi une liste prédéfinie d'icônes adaptées aux départements
- * Remplit le champ icône du formulaire et ajoute un effet visuel
- */
-function generateRandomIcon() {
-  const iconInput = document.getElementById("departmentIcon");
-  if (!iconInput) return;
-  
-  const randomIcon = availableIcons[Math.floor(Math.random() * availableIcons.length)];
-  iconInput.value = randomIcon;
-  
-  // Ajouter un effet visuel pour indiquer la génération
-  iconInput.style.transform = 'scale(1.05)';
-  setTimeout(() => {
-    iconInput.style.transform = 'scale(1)';
-  }, 200);
-}
-
-/**
- * Génère une couleur hexadécimale aléatoire pour un département
- * Sélectionne une couleur parmi une palette prédéfinie
- * Remplit le champ couleur du formulaire
- */
-function generateRandomColor() {
-  const colorInput = document.getElementById("departmentColor");
-  if (!colorInput) return;
-  
-  // Générer une couleur hexadécimale aléatoire
-  const colors = [
-    '#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981',
-    '#3b82f6', '#ef4444', '#14b8a6', '#f97316', '#a855f7',
-    '#06b6d4', '#84cc16', '#eab308', '#f43f5e', '#6366f1'
-  ];
-  
-  const randomColor = colors[Math.floor(Math.random() * colors.length)];
-  colorInput.value = randomColor;
-}
-
-// Variable pour stocker le nom du département en cours d'édition
-let editingDepartmentName = null;
-
-/**
- * Ouvre le modal d'ajout/modification de département
- * @param {string|null} departmentName - Nom du département à modifier (null pour ajouter)
- * En mode ajout : génère automatiquement une couleur et une icône aléatoires
- * En mode édition : remplit le formulaire avec les données existantes
- */
-function openDepartmentModal(departmentName = null) {
-  const modal = document.getElementById("departmentModal");
-  const form = document.getElementById("departmentForm");
-  const modalTitle = document.getElementById("departmentModalTitle");
-  const submitBtn = document.getElementById("departmentSubmitBtn");
-  
-  if (modal && form) {
-    modal.classList.remove("hidden");
-    editingDepartmentName = departmentName;
-    
-    if (departmentName) {
-      // Mode édition
-      const deptInfo = departmentInfo[departmentName];
-      if (deptInfo) {
-        document.getElementById("departmentName").value = deptInfo.label;
-        document.getElementById("departmentColor").value = deptInfo.color;
-        document.getElementById("departmentIcon").value = deptInfo.icon;
-        modalTitle.textContent = "Modifier un département";
-        submitBtn.textContent = "Modifier";
-      }
-    } else {
-      // Mode ajout
-      form.reset();
-      generateRandomColor();
-      generateRandomIcon();
-      modalTitle.textContent = "Ajouter un département";
-      submitBtn.textContent = "Ajouter";
-    }
-  }
-}
-
-/**
- * Ouvre le modal en mode édition pour modifier un département
- * @param {string} name - Nom du département à modifier
- * Empêche la modification du département "Non assigné"
- */
-function editDepartment(name) {
-  if (name === "Non assigné") {
-    alert("Le département 'Non assigné' ne peut pas être modifié");
-    return;
-  }
-  openDepartmentModal(name);
-}
-
-/**
- * Ferme le modal d'ajout/modification de département
- * Réinitialise la variable d'édition
- */
-function closeDepartmentModal() {
-  const modal = document.getElementById("departmentModal");
-  if (modal) {
-    modal.classList.add("hidden");
-    editingDepartmentName = null;
-  }
-}
-
-/**
- * Ajoute un nouveau département à la liste
- * @param {string} name - Nom du département
- * @param {string} color - Couleur hexadécimale du département
- * @param {string} icon - Classe Font Awesome de l'icône
- * @returns {boolean} true si l'ajout a réussi, false sinon
- * Vérifie que le département n'existe pas déjà
- * Sauvegarde dans localStorage et met à jour l'affichage
- * Met à jour les graphiques si nécessaire
- */
-function addDepartment(name, color, icon) {
-  if (!name || !color || !icon) {
-    alert("Veuillez remplir tous les champs");
-    return false;
-  }
-  
-  // Vérifier si le département existe déjà
-  if (departmentInfo[name]) {
-    alert("Ce département existe déjà");
-    return false;
-  }
-  
-  departmentInfo[name] = {
-    color: color,
-    icon: icon,
-    label: name
-  };
-  
-  saveDepartments();
-  renderDepartmentsList();
-  updateDepartmentSelects();
-  
-  // Mettre à jour les graphiques si on est sur la page Department
-  if (departmentCard && departmentCard.style.display !== "none") {
-    renderDepartmentChart();
-  }
-  
-  // Mettre à jour le graphique du dashboard
-  const dashboardChartCardEl = document.getElementById("dashboardDepartmentChartCard");
-  if (dashboardChartCardEl && dashboardChartCardEl.style.display !== "none") {
-    renderDashboardDepartmentChart();
-  }
-  
-  return true;
-}
-
-/**
- * Supprime un département et tous ses employés associés
- * @param {string} name - Nom du département à supprimer
- * Demande confirmation avant suppression
- * Empêche la suppression du département "Non assigné"
- * Supprime tous les employés appartenant à ce département
- * Met à jour localStorage, graphiques et affichages
- */
-function deleteDepartment(name) {
-  if (!confirm(`Êtes-vous sûr de vouloir supprimer le département "${name}" ?\n\nTous les employés de ce département seront également supprimés.`)) {
-    return;
-  }
-  
-  // Ne pas permettre la suppression de "Non assigné"
-  if (name === "Non assigné") {
-    alert("Le département 'Non assigné' ne peut pas être supprimé");
-    return;
-  }
-  
-  // Supprimer tous les employés de ce département et les compter comme démissionnés
-  const employeesToDelete = employees.filter(emp => emp.department === name);
-  if (employeesToDelete.length > 0) {
-    employees = employees.filter(emp => emp.department !== name);
-    // Compter les employés supprimés comme démissionnés
-    leaves += employeesToDelete.length;
-    localStorage.setItem("employees", JSON.stringify(employees));
-    localStorage.setItem("leaves", leaves);
-    
-    // Mettre à jour les KPI
-    updateKPI();
-  }
-  
-  // Supprimer le département
-  delete departmentInfo[name];
-  saveDepartments();
-  
-  // Mettre à jour l'affichage
-  renderDepartmentsList();
-  updateDepartmentSelects();
-  
-  // Mettre à jour les graphiques
-  if (departmentCard && departmentCard.style.display !== "none") {
-    renderDepartmentChart();
-  }
-  
-  // Mettre à jour le graphique du dashboard
-  const dashboardChartCardEl = document.getElementById("dashboardDepartmentChartCard");
-  if (dashboardChartCardEl && dashboardChartCardEl.style.display !== "none") {
-    renderDashboardDepartmentChart();
-  }
-  
-  // Re-rendre les employés
-  renderEmployees();
-}
-
-/**
- * Met à jour un département existant
- * @param {string} oldName - Ancien nom du département
- * @param {string} newName - Nouveau nom du département
- * @param {string} color - Nouvelle couleur hexadécimale
- * @param {string} icon - Nouvelle classe Font Awesome
- * @returns {boolean} true si la mise à jour a réussi, false sinon
- * Si le nom change, met à jour tous les employés et candidatures associés
- * Met à jour les graphiques et les affichages
- */
-function updateDepartment(oldName, newName, color, icon) {
-  if (!newName || !color || !icon) {
-    alert("Veuillez remplir tous les champs");
-    return false;
-  }
-  
-  // Ne pas permettre la modification de "Non assigné"
-  if (oldName === "Non assigné") {
-    alert("Le département 'Non assigné' ne peut pas être modifié");
-    return false;
-  }
-  
-  // Si le nom a changé, vérifier qu'il n'existe pas déjà
-  if (oldName !== newName && departmentInfo[newName]) {
-    alert("Ce nom de département existe déjà");
-    return false;
-  }
-  
-  // Mettre à jour les informations du département
-  const oldInfo = departmentInfo[oldName];
-  if (!oldInfo) {
-    alert("Département non trouvé");
-    return false;
-  }
-  
-  // Si le nom a changé, créer un nouveau département et supprimer l'ancien
-  if (oldName !== newName) {
-    // Créer le nouveau département
-    departmentInfo[newName] = {
-      color: color,
-      icon: icon,
-      label: newName
-    };
-    
-    // Mettre à jour tous les employés qui appartiennent à ce département
-    employees.forEach(emp => {
-      if (emp.department === oldName) {
-        emp.department = newName;
-      }
-    });
-    localStorage.setItem("employees", JSON.stringify(employees));
-    
-    // Mettre à jour toutes les candidatures qui appartiennent à ce département
-    candidates.forEach(cand => {
-      if (cand.department === oldName) {
-        cand.department = newName;
-      }
-    });
-    localStorage.setItem("candidates", JSON.stringify(candidates));
-    
-    // Supprimer l'ancien département
-    delete departmentInfo[oldName];
-  } else {
-    // Si seul le nom n'a pas changé, mettre à jour les autres propriétés
-    departmentInfo[oldName] = {
-      color: color,
-      icon: icon,
-      label: newName
-    };
-  }
-  
-  saveDepartments();
-  renderDepartmentsList();
-  updateDepartmentSelects();
-  
-  // Mettre à jour les graphiques
-  if (departmentCard && departmentCard.style.display !== "none") {
-    renderDepartmentChart();
-  }
-  
-  const dashboardChartCardEl = document.getElementById("dashboardDepartmentChartCard");
-  if (dashboardChartCardEl && dashboardChartCardEl.style.display !== "none") {
-    renderDashboardDepartmentChart();
-  }
-  
-  // Re-rendre les employés pour mettre à jour l'affichage
-  renderEmployees();
-  renderCandidates();
-  updateKPI();
-  
-  return true;
-}
-
-/**
- * Gestionnaire de soumission du formulaire d'ajout/modification de département
- * Crée un nouveau département ou met à jour un département existant selon le mode
- * Sauvegarde dans localStorage et met à jour tous les affichages
- * Met à jour les graphiques et les sélecteurs dans les formulaires
- */
-const departmentForm = document.getElementById("departmentForm");
-if (departmentForm) {
-  departmentForm.addEventListener("submit", function(e) {
-    e.preventDefault();
-    
-    const name = document.getElementById("departmentName").value.trim();
-    const color = document.getElementById("departmentColor").value;
-    const icon = document.getElementById("departmentIcon").value.trim();
-    
-    if (editingDepartmentName) {
-      // Mode édition
-      if (updateDepartment(editingDepartmentName, name, color, icon)) {
-        closeDepartmentModal();
-      }
-    } else {
-      // Mode ajout
-      if (addDepartment(name, color, icon)) {
-        closeDepartmentModal();
-      }
-    }
-  });
-}
-
-/**
- * Ferme le modal de département si l'utilisateur clique en dehors du contenu
- * Détecte les clics sur le fond du modal (overlay)
- */
-const departmentModal = document.getElementById("departmentModal");
-if (departmentModal) {
-  departmentModal.addEventListener("click", function(e) {
-    if (e.target === departmentModal) {
-      closeDepartmentModal();
-    }
-  });
-}
-
-// Initialiser la liste des départements au chargement
-document.addEventListener("DOMContentLoaded", function() {
-  // Petit délai pour s'assurer que le DOM est complètement chargé
-  setTimeout(function() {
-    renderDepartmentsList();
-    updateDepartmentSelects();
-  }, 100);
-});
-
-/**
- * Convertit une candidature acceptée en employé
- * @param {string} candidateId - ID de la candidature à convertir
- * Crée un nouvel employé avec les données de la candidature
- * Génère un identifiant unique et définit le statut "EN INTÉGRATION"
- * Supprime la candidature de la liste
- * Ouvre le modal d'employé pour compléter les informations manquantes
- */
-function convertCandidateToEmployee(candidateId) {
-  const candidate = candidates.find(c => c.id === candidateId);
-  if (!candidate) return;
-
-  if (!confirm(`Convertir ${candidate.name} en employé ?`)) return;
-
-  // Créer un employé à partir de la candidature
-  const newEmployee = {
-    name: candidate.name,
-    role: candidate.role,
-    cin: '', // À remplir manuellement
-    identifier: generateUniqueIdentifier(),
-    department: candidate.department || '',
-    status: "EN INTÉGRATION"
-  };
-
-  employees.push(newEmployee);
-  localStorage.setItem("employees", JSON.stringify(employees));
-
-  // Supprimer la candidature ou changer son statut
-  candidates = candidates.filter(c => c.id !== candidateId);
-  localStorage.setItem("candidates", JSON.stringify(candidates));
-
-  // Mettre à jour les affichages
-  renderCandidates();
-  renderEmployees();
-  updateKPI();
-  
-  // Ouvrir le modal d'employé pour compléter les informations
-  openModal();
-  empName.value = newEmployee.name;
-  empRole.value = newEmployee.role;
-  empDepartment.value = newEmployee.department;
-  empStatus.value = newEmployee.status;
-}
-
-/**
- * Gestionnaire de recherche en temps réel dans la liste des candidatures
- * Filtre les candidatures par nom, email, téléphone, poste, département ou statut
- * Met à jour l'affichage au fur et à mesure de la saisie
- */
-if (searchCandidatesInput) {
-  searchCandidatesInput.addEventListener("input", function (e) {
-    const searchTerm = e.target.value;
-    renderCandidates(searchTerm);
-  });
-}
-
-//tache d'aujourdui
-/**
- * Affiche les tâches prévues pour aujourd'hui dans le dashboard
- * Filtre les tâches par date du jour
- * Affiche la date actuelle formatée en français
- * Affiche un message si aucune tâche n'est prévue
- * Formate l'heure et la description de chaque tâche
- */
-function renderTodayTasks() {
-  const todayTasksList = document.getElementById("todayTasksList");
-  const todayDateElement = document.getElementById("todayDate");
-  
-  if (!todayTasksList) return;
-
-  // Obtenir la date d'aujourd'hui au format YYYY-MM-DD
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-  
-  // Formater la date pour l'affichage
-  const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  const formattedDate = today.toLocaleDateString('fr-FR', dateOptions);
-  if (todayDateElement) {
-    todayDateElement.textContent = formattedDate;
-  }
-
-  // Filtrer les tâches d'aujourd'hui
-  const todayTasks = tasks.filter(task => task.date === todayStr);
-
-  // Trier par heure
-  todayTasks.sort((a, b) => {
-    if (!a.time && !b.time) return 0;
-    if (!a.time) return 1;
-    if (!b.time) return -1;
-    return a.time.localeCompare(b.time);
-  });
-
-  if (todayTasks.length === 0) {
-    todayTasksList.innerHTML = `
-      <div class="tasks-empty">
-        <i class="fa fa-calendar-check"></i>
-        <p>Aucune tâche prévue pour aujourd'hui</p>
-      </div>
-    `;
-  } else {
-    todayTasksList.innerHTML = todayTasks.map(task => {
-      const timeDisplay = task.time ? `
-        <span class="task-item-time">
-          <i class="fa fa-clock"></i> ${task.time}
-        </span>
-      ` : '';
-      
-      const descriptionDisplay = task.description ? `
-        <div class="task-item-description">${task.description}</div>
-      ` : '';
-
-      return `
-        <div class="task-item">
-          <div class="task-item-header">
-            <div class="task-item-title">${task.title}</div>
-            ${timeDisplay}
+        <div class="filter-container">
+          <div class="custom-select-wrapper">
+            <div class="custom-select" id="customFilterDepartment">
+              <div class="custom-select-trigger">
+                <span class="custom-select-value">Tous les départements</span>
+                <i class="fa fa-chevron-down"></i>
+              </div>
+              <div class="custom-select-options">
+                <div class="custom-select-option" data-value="">Tous les départements</div>
+                <div class="custom-select-option" data-value="Business et marketing">Business et marketing</div>
+                <div class="custom-select-option" data-value="Design">Design</div>
+                <div class="custom-select-option" data-value="Gestion de projet">Gestion de projet</div>
+                <div class="custom-select-option" data-value="Ressources humaines">Ressources humaines</div>
+                <div class="custom-select-option" data-value="Développement">Développement</div>
+              </div>
+            </div>
+            <select id="filterDepartment" style="display: none;">
+              <option value="">Tous les départements</option>
+              <option value="Business et marketing">Business et marketing</option>
+              <option value="Design">Design</option>
+              <option value="Gestion de projet">Gestion de projet</option>
+              <option value="Ressources humaines">Ressources humaines</option>
+              <option value="Développement">Développement</option>
+            </select>
           </div>
-          ${descriptionDisplay}
         </div>
-      `;
-    }).join('');
-  }
-}
+        <div class="card-actions">
+          <button class="btn" onclick="openModal()">Ajouter un employe</button>
+        </div>
+      </div>
 
+      <table class="employees">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Poste</th>
+            <th>CIN</th>
+            <th>Departement</th>
+            <th>Statut</th>
+            <th>Identifiant</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <!-- tbody remplacé -->
+        <tbody id="employeesBody"></tbody>
+      </table>
+    </div>
+
+    <!-- CANDIDATURES -->
+    <div class="card" id="candidatesCard" style="display: none;">
+      <div class="card-header">
+        <h3>Candidatures</h3>
+        <div class="search-container">
+          <i class="fa fa-search search-icon"></i>
+          <input type="text" id="searchCandidates" placeholder="Rechercher par nom, poste, email..." class="search-input">
+        </div>
+        <div class="card-actions">
+          <button class="btn" onclick="openCandidateModal()">Ajouter une candidature</button>
+        </div>
+      </div>
+
+      <table class="employees">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Poste</th>
+            <th>Email</th>
+            <th>Téléphone</th>
+            <th>Département</th>
+            <th>Statut</th>
+            <th>Date</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="candidatesBody"></tbody>
+      </table>
+    </div>
+
+    <!-- DEPARTMENT -->
+    <div class="card" id="departmentCard" style="display: none;">
+      <div class="card-header">
+        <h3>Répartition par département</h3>
+        <div class="card-actions">
+          <button class="btn" onclick="openDepartmentModal()">Ajouter un département</button>
+        </div>
+      </div>
+      <div class="department-infographic">
+        <div class="department-stats" id="departmentStats">
+          <!-- Les statistiques seront générées dynamiquement -->
+        </div>
+        <div class="chart-wrapper">
+          <div class="chart-container-large">
+            <canvas id="departmentChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLANNING -->
+    <div class="card" id="planningCard" style="display: none;">
+      <div class="card-header">
+        <h3>Planning</h3>
+        <button class="btn-add-task" onclick="openTaskModal()" title="Ajouter une tâche">
+          <i class="fa fa-plus"></i>
+        </button>
+      </div>
+      
+      <div class="calendar-container">
+        <div class="calendar-header">
+          <button class="calendar-nav" onclick="previousMonth()">
+            <i class="fa fa-chevron-left"></i>
+          </button>
+          <h3 id="calendarMonthYear"></h3>
+          <button class="calendar-nav" onclick="nextMonth()">
+            <i class="fa fa-chevron-right"></i>
+          </button>
+        </div>
+        
+        <div class="calendar-weekdays">
+          <div class="weekday">Lun</div>
+          <div class="weekday">Mar</div>
+          <div class="weekday">Mer</div>
+          <div class="weekday">Jeu</div>
+          <div class="weekday">Ven</div>
+          <div class="weekday">Sam</div>
+          <div class="weekday">Dim</div>
+        </div>
+        
+        <div class="calendar-grid" id="calendarGrid"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL AJOUT EMPLOYÉ -->
+<div id="employeeModal" class="modal hidden">
+  <div class="modal-content">
+    <span class="modal-close" onclick="closeModal()">&times;</span>
+    <h3>Ajouter un employe</h3>
+
+    <form id="employeeForm">
+      <div class="form-group">
+        <label for="empName">Nom complet</label>
+        <input type="text" id="empName" placeholder="Ex: Jean Dupont" required>
+      </div>
+      <div class="form-group">
+        <label for="empRole">Poste</label>
+        <input type="text" id="empRole" placeholder="Ex: Développeur" required>
+      </div>
+      <div class="form-group">
+        <label for="empCin">CIN</label>
+        <input type="text" id="empCin" placeholder="Ex: AB123456" required>
+      </div>
+      <div class="form-group">
+        <label for="empIdentifier">Identifiant (généré automatiquement)</label>
+        <input type="text" id="empIdentifier" placeholder="Généré automatiquement" required readonly>
+      </div>
+      <div class="form-group">
+        <label for="empDepartment">Departement</label>
+        <div class="custom-select-wrapper">
+          <div class="custom-select" id="customEmpDepartment">
+            <div class="custom-select-trigger">
+              <span class="custom-select-value">Selectionner</span>
+              <i class="fa fa-chevron-down"></i>
+            </div>
+            <div class="custom-select-options">
+              <div class="custom-select-option" data-value="">Selectionner</div>
+              <div class="custom-select-option" data-value="Business et marketing">Business et marketing</div>
+              <div class="custom-select-option" data-value="Design">Design</div>
+              <div class="custom-select-option" data-value="Gestion de projet">Gestion de projet</div>
+              <div class="custom-select-option" data-value="Ressources humaines">Ressources humaines</div>
+              <div class="custom-select-option" data-value="Développement">Développement</div>
+            </div>
+          </div>
+          <select id="empDepartment" style="display: none;">
+            <option value="">Selectionner</option>
+            <option value="Business et marketing">Business et marketing</option>
+            <option value="Design">Design</option>
+            <option value="Gestion de projet">Gestion de projet</option>
+            <option value="Ressources humaines">Ressources humaines</option>
+            <option value="Développement">Développement</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="empStatus">Statut</label>
+        <select id="empStatus">
+          <option value="ACTIF">ACTIF</option>
+          <option value="EN INTÉGRATION">EN INTEGRATION</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="empSalary">Salaire (MAD)</label>
+        <input type="number" id="empSalary" placeholder="Ex: 15000" min="0" step="any">
+      </div>
+
+      <div class="form-group">
+        <button type="button" class="btn btn-auto" onclick="generateRandomEmployee()" title="Générer des données aléatoires">
+          <i class="fa fa-magic"></i> Auto
+        </button>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn cancel" onclick="closeModal()">Annuler</button>
+        <button type="submit" class="btn">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL VOIR EMPLOYÉ -->
+<div id="viewEmployeeModal" class="modal hidden">
+  <div class="modal-content">
+    <span class="modal-close" onclick="closeViewEmployeeModal()">&times;</span>
+    <h3>Informations de l'employé</h3>
+
+    <div id="viewEmployeeContent" class="view-employee-content">
+      <!-- Les informations seront générées dynamiquement -->
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="closeViewEmployeeModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AJOUT CANDIDATURE -->
+<div id="candidateModal" class="modal hidden">
+  <div class="modal-content">
+    <span class="modal-close" onclick="closeCandidateModal()">&times;</span>
+    <h3 id="candidateModalTitle">Ajouter une candidature</h3>
+
+    <form id="candidateForm">
+      <div class="form-group">
+        <label for="candidateName">Nom complet</label>
+        <input type="text" id="candidateName" placeholder="Ex: Marie Martin" required>
+      </div>
+      <div class="form-group">
+        <label for="candidateEmail">Email</label>
+        <input type="email" id="candidateEmail" placeholder="Ex: marie.martin@email.com" required>
+      </div>
+      <div class="form-group">
+        <label for="candidatePhone">Téléphone</label>
+        <input type="tel" id="candidatePhone" placeholder="Ex: +212 6XX XXX XXX">
+      </div>
+      <div class="form-group">
+        <label for="candidateRole">Poste souhaité</label>
+        <input type="text" id="candidateRole" placeholder="Ex: Développeur" required>
+      </div>
+      <div class="form-group">
+        <label for="candidateDepartment">Département</label>
+        <div class="custom-select-wrapper">
+          <div class="custom-select" id="customCandidateDepartment">
+            <div class="custom-select-trigger">
+              <span class="custom-select-value">Sélectionner</span>
+              <i class="fa fa-chevron-down"></i>
+            </div>
+            <div class="custom-select-options">
+              <div class="custom-select-option" data-value="">Sélectionner</div>
+              <div class="custom-select-option" data-value="Business et marketing">Business et marketing</div>
+              <div class="custom-select-option" data-value="Design">Design</div>
+              <div class="custom-select-option" data-value="Gestion de projet">Gestion de projet</div>
+              <div class="custom-select-option" data-value="Ressources humaines">Ressources humaines</div>
+              <div class="custom-select-option" data-value="Développement">Développement</div>
+            </div>
+          </div>
+          <select id="candidateDepartment" style="display: none;">
+            <option value="">Sélectionner</option>
+            <option value="Business et marketing">Business et marketing</option>
+            <option value="Design">Design</option>
+            <option value="Gestion de projet">Gestion de projet</option>
+            <option value="Ressources humaines">Ressources humaines</option>
+            <option value="Développement">Développement</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="candidateStatus">Statut</label>
+        <select id="candidateStatus">
+          <option value="EN ATTENTE">EN ATTENTE</option>
+          <option value="EN COURS">EN COURS</option>
+          <option value="ACCEPTÉE">ACCEPTÉE</option>
+          <option value="REFUSÉE">REFUSÉE</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="candidateNotes">Notes</label>
+        <textarea id="candidateNotes" placeholder="Notes supplémentaires..." rows="3"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn cancel" onclick="closeCandidateModal()">Annuler</button>
+        <button type="submit" class="btn" id="candidateSubmitBtn">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL AJOUT TÂCHE -->
+<div id="taskModal" class="modal hidden">
+  <div class="modal-content">
+    <span class="modal-close" onclick="closeTaskModal()">&times;</span>
+    <h3>Ajouter une tâche</h3>
+
+    <form id="taskForm">
+      <div class="form-group">
+        <label for="taskTitle">Titre de la tâche</label>
+        <input type="text" id="taskTitle" placeholder="Ex: Réunion d'équipe" required>
+      </div>
+      <div class="form-group">
+        <label for="taskDate">Date</label>
+        <input type="date" id="taskDate" required min="">
+      </div>
+      <div class="form-group">
+        <label for="taskTime">Heure</label>
+        <input type="time" id="taskTime" required>
+      </div>
+      <div class="form-group">
+        <label for="taskDescription">Description</label>
+        <textarea id="taskDescription" placeholder="Description de la tâche..." rows="3"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn cancel" onclick="closeTaskModal()">Annuler</button>
+        <button type="submit" class="btn">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL AJOUT DÉPARTEMENT -->
+<div id="departmentModal" class="modal hidden">
+  <div class="modal-content">
+    <span class="modal-close" onclick="closeDepartmentModal()">&times;</span>
+    <h3 id="departmentModalTitle">Ajouter un département</h3>
+
+    <form id="departmentForm">
+      <div class="form-group">
+        <label for="departmentName">Nom du département</label>
+        <input type="text" id="departmentName" placeholder="Ex: Marketing" required>
+      </div>
+      <div class="form-group">
+        <label for="departmentColor">Couleur</label>
+        <input type="color" id="departmentColor" value="#6366f1" required>
+      </div>
+      <div class="form-group">
+        <label for="departmentIcon">Icône (Font Awesome)</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="text" id="departmentIcon" placeholder="Ex: fa-briefcase" required style="flex: 1;">
+          <button type="button" class="btn-icon-generate" onclick="generateRandomIcon()" title="Générer une icône aléatoire">
+            <i class="fa fa-random"></i>
+          </button>
+        </div>
+        <small style="color: rgba(255, 255, 255, 0.6); font-size: 12px;">Utilisez le nom de classe Font Awesome (ex: fa-briefcase, fa-code, fa-palette)</small>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn cancel" onclick="closeDepartmentModal()">Annuler</button>
+        <button type="submit" class="btn" id="departmentSubmitBtn">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="java.js"></script>
+</body>
+</html>
