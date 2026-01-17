@@ -96,7 +96,34 @@ const submitButton = document.querySelector("#employeeForm button[type='submit']
 function openModal(identifier = null) {
   editingCin = identifier;
 
+  // Mettre à jour les options du sélecteur avec tous les départements disponibles
+  const empDepartmentSelect = document.getElementById("empDepartment");
   const customEmpDepartment = document.getElementById("customEmpDepartment");
+  if (empDepartmentSelect && customEmpDepartment) {
+    const customOptions = customEmpDepartment.querySelector(".custom-select-options");
+    if (customOptions) {
+      customOptions.innerHTML = '<div class="custom-select-option" data-value="">Sélectionner</div>';
+      Object.keys(departmentInfo).forEach(dept => {
+        if (dept !== "Non assigné") {
+          customOptions.innerHTML += `<div class="custom-select-option" data-value="${dept}">${departmentInfo[dept].label}</div>`;
+        }
+      });
+    }
+    
+    empDepartmentSelect.innerHTML = '<option value="">Sélectionner</option>';
+    Object.keys(departmentInfo).forEach(dept => {
+      if (dept !== "Non assigné") {
+        empDepartmentSelect.innerHTML += `<option value="${dept}">${departmentInfo[dept].label}</option>`;
+      }
+    });
+    
+    // Réinitialiser le sélecteur personnalisé pour réattacher les listeners
+    if (customEmpDepartment.dataset.initialized === "true") {
+      customEmpDepartment.dataset.initialized = "false";
+    }
+    initFormCustomSelect();
+  }
+
   const customSelectValue = customEmpDepartment?.querySelector(".custom-select-value");
   const customSelectOptions = customEmpDepartment?.querySelectorAll(".custom-select-option");
   
@@ -951,6 +978,51 @@ function initCustomSelect() {
 }
 
 // Sélecteur personnalisé pour le formulaire employé
+let empSelectClickHandler = null;
+let empOptionsClickHandler = null;
+
+/**
+ * Attache le listener de délégation d'événements sur les options du sélecteur d'employé
+ */
+function attachEmpOptionsListener(customSelect, customSelectOptions, empDepartment) {
+  const customSelectValue = customSelect.querySelector(".custom-select-value");
+  if (!customSelectValue) return;
+  
+  // Supprimer l'ancien listener s'il existe
+  if (empOptionsClickHandler) {
+    customSelectOptions.removeEventListener("click", empOptionsClickHandler);
+  }
+  
+  // Créer et attacher le nouveau listener avec délégation d'événements
+  empOptionsClickHandler = function(e) {
+    const option = e.target.closest(".custom-select-option");
+    if (!option) return;
+    
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const value = option.getAttribute("data-value");
+    const text = option.textContent;
+    
+    // Mettre à jour l'affichage
+    customSelectValue.textContent = text;
+    
+    // Mettre à jour le select caché
+    empDepartment.value = value;
+    
+    // Retirer la sélection précédente
+    const allOptions = customSelectOptions.querySelectorAll(".custom-select-option");
+    allOptions.forEach(opt => opt.classList.remove("selected"));
+    // Ajouter la sélection à l'option choisie
+    option.classList.add("selected");
+    
+    // Fermer le dropdown
+    customSelect.classList.remove("active");
+  };
+  
+  customSelectOptions.addEventListener("click", empOptionsClickHandler);
+}
+
 /**
  * Initialise le sélecteur personnalisé de département dans le formulaire d'ajout/modification d'employé
  * Synchronise le sélecteur personnalisé avec le select natif caché
@@ -965,44 +1037,35 @@ function initFormCustomSelect() {
   const customSelectOptions = customSelect.querySelector(".custom-select-options");
   const customSelectValue = customSelect.querySelector(".custom-select-value");
 
-  if (customSelectTrigger && customSelectOptions && customSelectValue) {
-    // Ouvrir/fermer select
-    customSelectTrigger.addEventListener("click", function(e) {
-      e.stopPropagation();
-      customSelect.classList.toggle("active");
-    });
+  if (!customSelectTrigger || !customSelectOptions || !customSelectValue) return;
 
-    // Fermer quand on clique ailleurs
-    document.addEventListener("click", function(e) {
-      if (!customSelect.contains(e.target)) {
-        customSelect.classList.remove("active");
-      }
-    });
-
-    // Gérer la sélection d'une option
-    const options = customSelectOptions.querySelectorAll(".custom-select-option");
-    options.forEach(option => {
-      option.addEventListener("click", function(e) {
-        e.stopPropagation();
-        const value = this.getAttribute("data-value");
-        const text = this.textContent;
-        
-        // Mettre à jour l'affichage
-        customSelectValue.textContent = text;
-        
-        // Mettre à jour le select caché
-        empDepartment.value = value;
-        
-        // Retirer la sélection précédente
-        options.forEach(opt => opt.classList.remove("selected"));
-        // Ajouter la sélection à l'option choisie
-        this.classList.add("selected");
-        
-        // Fermer le dropdown
-        customSelect.classList.remove("active");
-      });
-    });
+  // Toujours réattacher le listener sur les options (au cas où elles ont été recréées)
+  attachEmpOptionsListener(customSelect, customSelectOptions, empDepartment);
+  
+  // Éviter la double initialisation du trigger et du click handler
+  if (customSelect.dataset.initialized === "true") {
+    return;
   }
+  customSelect.dataset.initialized = "true";
+
+  // Ouvrir/fermer select
+  customSelectTrigger.addEventListener("click", function(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    customSelect.classList.toggle("active");
+  });
+
+  // Fermer quand on clique ailleurs
+  // Supprimer l'ancien handler s'il existe
+  if (empSelectClickHandler) {
+    document.removeEventListener("click", empSelectClickHandler);
+  }
+  empSelectClickHandler = function(e) {
+    if (customSelect && !customSelect.contains(e.target)) {
+      customSelect.classList.remove("active");
+    }
+  };
+  document.addEventListener("click", empSelectClickHandler);
 }
 
 // Sélecteur personnalisé pour le formulaire candidature
@@ -1011,6 +1074,51 @@ function initFormCustomSelect() {
  * Synchronise le sélecteur personnalisé avec le select natif caché
  * Gère l'ouverture/fermeture et la sélection d'options
  */
+let candidateSelectClickHandler = null;
+let candidateOptionsClickHandler = null;
+
+/**
+ * Attache le listener de délégation d'événements sur les options du sélecteur de candidature
+ */
+function attachCandidateOptionsListener(customSelect, customSelectOptions, candidateDepartment) {
+  const customSelectValue = customSelect.querySelector(".custom-select-value");
+  if (!customSelectValue) return;
+  
+  // Supprimer l'ancien listener s'il existe
+  if (candidateOptionsClickHandler) {
+    customSelectOptions.removeEventListener("click", candidateOptionsClickHandler);
+  }
+  
+  // Créer et attacher le nouveau listener avec délégation d'événements
+  candidateOptionsClickHandler = function(e) {
+    const option = e.target.closest(".custom-select-option");
+    if (!option) return;
+    
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const value = option.getAttribute("data-value");
+    const text = option.textContent;
+    
+    // Mettre à jour l'affichage
+    customSelectValue.textContent = text;
+    
+    // Mettre à jour le select caché
+    candidateDepartment.value = value;
+    
+    // Retirer la sélection précédente
+    const allOptions = customSelectOptions.querySelectorAll(".custom-select-option");
+    allOptions.forEach(opt => opt.classList.remove("selected"));
+    // Ajouter la sélection à l'option choisie
+    option.classList.add("selected");
+    
+    // Fermer le dropdown
+    customSelect.classList.remove("active");
+  };
+  
+  customSelectOptions.addEventListener("click", candidateOptionsClickHandler);
+}
+
 function initCandidateCustomSelect() {
   const customSelect = document.getElementById("customCandidateDepartment");
   const candidateDepartment = document.getElementById("candidateDepartment");
@@ -1020,44 +1128,35 @@ function initCandidateCustomSelect() {
   const customSelectOptions = customSelect.querySelector(".custom-select-options");
   const customSelectValue = customSelect.querySelector(".custom-select-value");
 
-  if (customSelectTrigger && customSelectOptions && customSelectValue) {
-    // Ouvrir/fermer le dropdown
-    customSelectTrigger.addEventListener("click", function(e) {
-      e.stopPropagation();
-      customSelect.classList.toggle("active");
-    });
+  if (!customSelectTrigger || !customSelectOptions || !customSelectValue) return;
 
-    // Fermer quand on clique ailleurs
-    document.addEventListener("click", function(e) {
-      if (!customSelect.contains(e.target)) {
-        customSelect.classList.remove("active");
-      }
-    });
-
-    // Gérer la sélection d'une option
-    const options = customSelectOptions.querySelectorAll(".custom-select-option");
-    options.forEach(option => {
-      option.addEventListener("click", function(e) {
-        e.stopPropagation();
-        const value = this.getAttribute("data-value");
-        const text = this.textContent;
-        
-        // Mettre à jour l'affichage
-        customSelectValue.textContent = text;
-        
-        // Mettre à jour le select caché
-        candidateDepartment.value = value;
-        
-        // Retirer la sélection précédente
-        options.forEach(opt => opt.classList.remove("selected"));
-        // Ajouter la sélection à l'option choisie
-        this.classList.add("selected");
-        
-        // Fermer le dropdown
-        customSelect.classList.remove("active");
-      });
-    });
+  // Toujours réattacher le listener sur les options (au cas où elles ont été recréées)
+  attachCandidateOptionsListener(customSelect, customSelectOptions, candidateDepartment);
+  
+  // Éviter la double initialisation du trigger et du click handler
+  if (customSelect.dataset.initialized === "true") {
+    return;
   }
+  customSelect.dataset.initialized = "true";
+  
+  // Ouvrir/fermer le dropdown
+  customSelectTrigger.addEventListener("click", function(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    customSelect.classList.toggle("active");
+  });
+
+  // Fermer quand on clique ailleurs
+  // Supprimer l'ancien handler s'il existe
+  if (candidateSelectClickHandler) {
+    document.removeEventListener("click", candidateSelectClickHandler);
+  }
+  candidateSelectClickHandler = function(e) {
+    if (customSelect && !customSelect.contains(e.target)) {
+      customSelect.classList.remove("active");
+    }
+  };
+  document.addEventListener("click", candidateSelectClickHandler);
 }
 
 // Initialiser le sélecteur personnalisé au chargement
@@ -1392,7 +1491,10 @@ function updateDepartmentSelects() {
       }
     });
     
-    // Réinitialiser le sélecteur personnalisé
+    // Réinitialiser le sélecteur personnalisé (les options ont été recréées, donc les event listeners sont perdus)
+    if (customEmpDepartment) {
+      customEmpDepartment.dataset.initialized = "false";
+    }
     if (typeof initFormCustomSelect === 'function') {
       initFormCustomSelect();
     }
@@ -1419,7 +1521,10 @@ function updateDepartmentSelects() {
       }
     });
     
-    // Réinitialiser le sélecteur personnalisé
+    // Réinitialiser le sélecteur personnalisé (les options ont été recréées, donc les event listeners sont perdus)
+    if (customCandidateDepartment) {
+      customCandidateDepartment.dataset.initialized = "false";
+    }
     if (typeof initCandidateCustomSelect === 'function') {
       initCandidateCustomSelect();
     }
@@ -2078,8 +2183,34 @@ function renderCandidates(searchTerm = "") {
 function openCandidateModal(candidateId = null) {
   editingCandidateId = candidateId;
   
-  // Mettre à jour le sélecteur personnalisé
+  // Mettre à jour les options du sélecteur avec tous les départements disponibles
+  const candidateDepartmentSelect = document.getElementById("candidateDepartment");
   const customCandidateDepartment = document.getElementById("customCandidateDepartment");
+  if (candidateDepartmentSelect && customCandidateDepartment) {
+    const customOptions = customCandidateDepartment.querySelector(".custom-select-options");
+    if (customOptions) {
+      customOptions.innerHTML = '<div class="custom-select-option" data-value="">Sélectionner</div>';
+      Object.keys(departmentInfo).forEach(dept => {
+        if (dept !== "Non assigné") {
+          customOptions.innerHTML += `<div class="custom-select-option" data-value="${dept}">${departmentInfo[dept].label}</div>`;
+        }
+      });
+    }
+    
+    candidateDepartmentSelect.innerHTML = '<option value="">Sélectionner</option>';
+    Object.keys(departmentInfo).forEach(dept => {
+      if (dept !== "Non assigné") {
+        candidateDepartmentSelect.innerHTML += `<option value="${dept}">${departmentInfo[dept].label}</option>`;
+      }
+    });
+    
+    // Réinitialiser le sélecteur personnalisé pour réattacher les listeners
+    if (customCandidateDepartment.dataset.initialized === "true") {
+      customCandidateDepartment.dataset.initialized = "false";
+    }
+  }
+  
+  // Mettre à jour le sélecteur personnalisé
   const customSelectValue = customCandidateDepartment?.querySelector(".custom-select-value");
   const customSelectOptions = customCandidateDepartment?.querySelectorAll(".custom-select-option");
   
@@ -2129,6 +2260,11 @@ function openCandidateModal(candidateId = null) {
   }
   
   candidateModal.classList.remove("hidden");
+  
+  // Initialiser le sélecteur personnalisé après l'ouverture du modal pour s'assurer que le DOM est prêt
+  setTimeout(function() {
+    initCandidateCustomSelect();
+  }, 100);
 }
 
 /**
