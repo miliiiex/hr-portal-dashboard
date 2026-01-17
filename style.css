@@ -312,8 +312,8 @@ body{
   right:16px;
   display:flex;
   gap:8px;
-  opacity:0;
-  visibility:hidden;
+  opacity:1;
+  visibility:visible;
   transition:all 0.2s;
 }
 
